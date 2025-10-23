@@ -1,5 +1,5 @@
 {
   "name": "Creative Suite AI",
-  "description": "An AI-powered creative suite to generate and edit icons and images. Use text prompts to create vector icons, generate realistic images, or perform powerful edits on your existing photos.",
+  "description": "An AI-powered creative suite to generate vector icons. Use text prompts to create unique icons for your projects.",
   "requestFramePermissions": []
 }

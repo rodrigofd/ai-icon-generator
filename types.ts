@@ -7,4 +7,5 @@ export enum IconStyle {
 export interface GeneratedIcon {
   id: string;
   pngSrc: string;
+  prompt: string;
 }

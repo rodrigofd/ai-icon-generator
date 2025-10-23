@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { IconStyle } from '../types';
 
@@ -28,17 +27,18 @@ export const generateIcons = async (prompt: string, style: IconStyle, numVariant
     ? "The icon must be simple, clear, and instantly recognizable for a user interface."
     : "This is a general-purpose icon.";
 
-  // Step 1: Prompt to generate icon on a solid background for easier processing.
+  const GREEN_SCREEN_COLOR = '#00b140';
+
+  // Step 1: Prompt to generate icon on a solid green background for client-side processing.
   const generationPrompt = `Generate a single, high-resolution 512x512 icon of a "${prompt}".
 
 **Style:** ${styleDescription}
 **Purpose:** ${purposeDescription}
 **Composition:** The icon must be a clean, visually distinct object, centered in the frame.
-**Background:** The background must be a solid, plain, non-transparent white color (#FFFFFF). This is critical for post-processing.
+**Background:** The background must be a solid, plain, non-transparent green color (${GREEN_SCREEN_COLOR}). This is critical for post-processing. The icon artwork itself must not contain this specific shade of green.
 **Negative Constraints:** Absolutely no text, letters, numbers, watermarks, or signatures.`;
 
   try {
-    // Step 1: Generate icons with a solid white background.
     const generationPromises = Array(numVariants).fill(0).map(() =>
       ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
@@ -53,7 +53,7 @@ export const generateIcons = async (prompt: string, style: IconStyle, numVariant
 
     const generationResponses = await Promise.all(generationPromises);
 
-    const imagesWithBackground = generationResponses.map(response => {
+    const imagesWithGreenScreen = generationResponses.map(response => {
       const firstPart = response.candidates?.[0]?.content?.parts?.[0];
       if (firstPart && firstPart.inlineData) {
         return firstPart.inlineData.data;
@@ -61,44 +61,11 @@ export const generateIcons = async (prompt: string, style: IconStyle, numVariant
       return null;
     }).filter((b64): b64 is string => b64 !== null);
 
-    if (imagesWithBackground.length === 0) {
-        throw new Error("No icons were generated during the initial step. The model may have refused the prompt.");
+    if (imagesWithGreenScreen.length === 0) {
+        throw new Error("No icons were generated. The model may have refused the prompt.");
     }
     
-    // Step 2: Prompt to remove the background.
-    const removalPrompt = "Remove the solid white background from this icon, making the background completely transparent. The icon artwork itself should remain perfectly intact and unchanged. Output a PNG with a true alpha channel.";
-
-    // Step 2: Remove the background from each generated icon.
-    const removalPromises = imagesWithBackground.map(base64Image =>
-        ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: {
-                parts: [
-                    { inlineData: { data: base64Image, mimeType: 'image/png' } },
-                    { text: removalPrompt },
-                ],
-            },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
-        })
-    );
-
-    const removalResponses = await Promise.all(removalPromises);
-
-    const finalImagesB64 = removalResponses.map(response => {
-      const firstPart = response.candidates?.[0]?.content?.parts?.[0];
-      if (firstPart && firstPart.inlineData) {
-        return firstPart.inlineData.data;
-      }
-      return null;
-    }).filter((b64): b64 is string => b64 !== null);
-
-    if (finalImagesB64.length === 0) {
-        throw new Error("Background removal failed for all generated icons.");
-    }
-    
-    return finalImagesB64;
+    return imagesWithGreenScreen;
 
   } catch (error) {
     console.error("Error generating icons:", error);
@@ -106,56 +73,65 @@ export const generateIcons = async (prompt: string, style: IconStyle, numVariant
   }
 };
 
-export const editImage = async (base64Image: string, mimeType: string, prompt: string): Promise<string> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: {
-                parts: [
-                    {
-                        inlineData: {
-                            data: base64Image,
-                            mimeType: mimeType,
-                        },
-                    },
-                    { text: prompt },
-                ],
-            },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
-        });
+// FIX: Add generateImage function to be used by ImageGenerator.tsx.
+export const generateImage = async (prompt: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateImages({
+      model: 'imagen-4.0-generate-001',
+      prompt: prompt,
+      config: {
+        numberOfImages: 1,
+        outputMimeType: 'image/png',
+      },
+    });
 
-        const firstPart = response.candidates?.[0]?.content?.parts?.[0];
-        if (firstPart && firstPart.inlineData) {
-            return firstPart.inlineData.data;
-        }
-        throw new Error("No image data found in API response.");
-    } catch (error) {
-        console.error("Error editing image:", error);
-        throw new Error("Failed to edit image with the API.");
+    const base64ImageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+
+    if (!base64ImageBytes) {
+      throw new Error("No image was generated. The model may have refused the prompt.");
     }
+    
+    return base64ImageBytes;
+
+  } catch (error) {
+    console.error("Error generating image:", error);
+    throw new Error("Failed to generate image from the API.");
+  }
 };
 
-export const generateImage = async (prompt: string): Promise<string> => {
-    try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: prompt,
-            config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/png',
-                aspectRatio: '1:1',
+// FIX: Add editImage function to be used by ImageEditor.tsx.
+export const editImage = async (base64ImageData: string, mimeType: string, prompt: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: base64ImageData,
+              mimeType: mimeType,
             },
-        });
-        
-        const generatedImage = response.generatedImages[0];
-        if (generatedImage?.image?.imageBytes) {
-            return generatedImage.image.imageBytes;
-        }
-        throw new Error("No image data found in API response.");
-    } catch (error) {
-        console.error("Error generating image:", error);
-        throw new Error("Failed to generate image with the API.");
+          },
+          {
+            text: prompt,
+          },
+        ],
+      },
+      config: {
+          responseModalities: [Modality.IMAGE],
+      },
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return part.inlineData.data;
+      }
     }
+
+    throw new Error("No edited image was returned from the model.");
+
+  } catch (error) {
+    console.error("Error editing image:", error);
+    throw new Error("Failed to edit image using the API.");
+  }
 };
