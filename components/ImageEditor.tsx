@@ -57,45 +57,45 @@ const ImageEditor: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <form onSubmit={handleSubmit} className="p-6 bg-gray-800/50 rounded-lg border border-gray-700 space-y-4">
+      <form onSubmit={handleSubmit} className="p-6 bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
         <div>
-          <label htmlFor="image-upload" className="block text-sm font-medium text-gray-300 mb-2">1. Upload Image</label>
+          <label htmlFor="image-upload" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">1. Upload Image</label>
           <input
             id="image-upload"
             type="file"
             accept="image/*"
             onChange={handleFileChange}
-            className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+            className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 dark:file:bg-purple-900/50 dark:file:text-purple-300 dark:hover:file:bg-purple-900"
           />
         </div>
 
         <div>
-          <label htmlFor="prompt-edit" className="block text-sm font-medium text-gray-300 mb-2">2. Describe Your Edit</label>
+          <label htmlFor="prompt-edit" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">2. Describe Your Edit</label>
           <input
             id="prompt-edit"
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="e.g., Remove the person in the background"
-            className="w-full bg-gray-900 border border-gray-600 rounded-md p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
+            className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-3 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
           />
         </div>
 
         <button
           type="submit"
           disabled={isLoading || !originalImage}
-          className="w-full flex justify-center items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-900 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-md transition-colors duration-300"
+          className="w-full flex justify-center items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 dark:disabled:bg-purple-900 disabled:text-gray-100 dark:disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-md transition-colors duration-300"
         >
           {isLoading ? <><Spinner /> Applying Edit...</> : 'Apply Edit'}
         </button>
       </form>
 
-      {error && <div className="text-red-400 bg-red-900/50 p-3 rounded-md text-center">{error}</div>}
+      {error && <div className="text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-3 rounded-md text-center">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="flex flex-col items-center">
-            <h3 className="text-lg font-semibold mb-2 text-gray-400">Original</h3>
-            <div className="w-full aspect-square bg-gray-800/50 rounded-lg border border-gray-700 flex items-center justify-center">
+            <h3 className="text-lg font-semibold mb-2 text-gray-500 dark:text-gray-400">Original</h3>
+            <div className="w-full aspect-square bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center">
                 {originalImage ? (
                     <img src={originalImage.url} alt="Original" className="max-w-full max-h-full object-contain rounded-lg"/>
                 ) : (
@@ -104,9 +104,9 @@ const ImageEditor: React.FC = () => {
             </div>
         </div>
         <div className="flex flex-col items-center">
-            <h3 className="text-lg font-semibold mb-2 text-gray-400">Edited</h3>
-            <div className="w-full aspect-square bg-gray-800/50 rounded-lg border border-gray-700 flex items-center justify-center">
-                {isLoading && <div className="text-center text-gray-400 flex flex-col items-center gap-4"><Spinner /><span>Editing in progress...</span></div>}
+            <h3 className="text-lg font-semibold mb-2 text-gray-500 dark:text-gray-400">Edited</h3>
+            <div className="w-full aspect-square bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center">
+                {isLoading && <div className="text-center text-gray-500 dark:text-gray-400 flex flex-col items-center gap-4"><Spinner /><span>Editing in progress...</span></div>}
                 {!isLoading && editedImage && (
                     <img src={editedImage} alt="Edited" className="max-w-full max-h-full object-contain rounded-lg"/>
                 )}

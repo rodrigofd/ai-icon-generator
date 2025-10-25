@@ -11,4 +11,7 @@ export interface GeneratedIcon {
   id: string;
   pngSrc: string;
   prompt: string;
+  style: IconStyle;
+  color: string;
+  isUiIcon: boolean;
 }

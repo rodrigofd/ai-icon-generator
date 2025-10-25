@@ -8,7 +8,65 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-const getStyleDescription = (style: IconStyle, color: string): string => {
+// --- New Color Collision Detection Logic ---
+
+/**
+ * Converts a hex color string to an RGB object.
+ * @param hex The hex color string (e.g., "#RRGGBB").
+ * @returns An object with r, g, b properties, or null if invalid.
+ */
+const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : null;
+};
+
+/**
+ * Calculates the Euclidean distance between two RGB colors.
+ * @param rgb1 The first color object.
+ * @param rgb2 The second color object.
+ * @returns The numerical distance between the colors.
+ */
+const colorDistance = (rgb1: { r: number; g: number; b: number }, rgb2: { r: number; g: number; b: number }): number => {
+  const rDiff = rgb1.r - rgb2.r;
+  const gDiff = rgb1.g - rgb2.g;
+  const bDiff = rgb1.b - rgb2.b;
+  return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+};
+
+const PRIMARY_MASK_COLOR_HEX = '#00b140';   // The original green screen
+const SECONDARY_MASK_COLOR_HEX = '#0000FF'; // A pure blue fallback
+const COLOR_DISTANCE_THRESHOLD = 120;      // How close colors can be before switching
+
+/**
+ * Selects a safe background color for generation that is unlikely to clash with the user's chosen color.
+ * @param userColorHex The color the user selected for their icon.
+ * @returns A hex string for a safe background color to use in the prompt.
+ */
+export const getSafeMaskColor = (userColorHex: string): string => {
+  const userColorRgb = hexToRgb(userColorHex);
+  if (!userColorRgb) {
+    return PRIMARY_MASK_COLOR_HEX; // Default if user color is somehow invalid
+  }
+
+  const primaryMaskRgb = hexToRgb(PRIMARY_MASK_COLOR_HEX)!;
+  if (colorDistance(userColorRgb, primaryMaskRgb) < COLOR_DISTANCE_THRESHOLD) {
+    // User's color is too close to green, so switch to the blue fallback.
+    // In a rare case the user's color is also close to blue, this logic could
+    // be extended to a third color, but blue is a very safe bet.
+    return SECONDARY_MASK_COLOR_HEX;
+  }
+
+  return PRIMARY_MASK_COLOR_HEX; // Green is safe to use
+};
+
+
+export const getStyleDescription = (style: IconStyle, color: string): string => {
   switch (style) {
     case IconStyle.FLAT_SINGLE_COLOR:
       return `A modern, flat design style icon. The icon must be a single solid shape, using only the color ${color}.`;
@@ -27,59 +85,72 @@ const getStyleDescription = (style: IconStyle, color: string): string => {
   }
 };
 
-export const generateIcons = async (prompt: string, style: IconStyle, numVariants: number, isUiIcon: boolean, color: string): Promise<string[]> => {
-  const styleDescription = getStyleDescription(style, color);
-  const purposeDescription = isUiIcon
-    ? "The icon must be simple, clear, and instantly recognizable for a user interface."
-    : "This is a general-purpose icon.";
-
-  const GREEN_SCREEN_COLOR = '#00b140';
-
-  // Step 1: Prompt to generate icon on a solid green background for client-side processing.
-  const generationPrompt = `Generate a single, high-resolution 512x512 icon of a "${prompt}".
-
-**Style:** ${styleDescription}
-**Purpose:** ${purposeDescription}
-**Composition:** The icon must be a clean, visually distinct object, centered in the frame.
-**Background:** The background must be a solid, plain, non-transparent green color (${GREEN_SCREEN_COLOR}). This is critical for post-processing. The icon artwork itself must not contain this specific shade of green.
-**Negative Constraints:** Absolutely no text, letters, numbers, watermarks, or signatures.`;
-
-  try {
-    const generationPromises = Array(numVariants).fill(0).map(() =>
-      ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [{ text: generationPrompt }],
+const callGenerationApi = async (prompt: string, numVariants: number, referenceImageB64?: string) => {
+  // FIX: Restructured `parts` array creation to allow TypeScript to correctly infer the union type
+  // for elements, which can be either a text or an image part. The previous implementation
+  // caused a type error when adding an image part to an array inferred to only contain text parts.
+  const parts = referenceImageB64
+    ? [
+        {
+          inlineData: {
+            mimeType: 'image/png',
+            data: referenceImageB64,
+          },
         },
-        config: {
-          responseModalities: [Modality.IMAGE],
-        },
-      })
-    );
+        { text: prompt },
+      ]
+    : [{ text: prompt }];
 
-    const generationResponses = await Promise.all(generationPromises);
+  const generationPromises = Array(numVariants).fill(0).map(() =>
+    ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts },
+      config: {
+        responseModalities: [Modality.IMAGE],
+      },
+    })
+  );
 
-    const imagesWithGreenScreen = generationResponses.map(response => {
-      const firstPart = response.candidates?.[0]?.content?.parts?.[0];
-      if (firstPart && firstPart.inlineData) {
-        return firstPart.inlineData.data;
-      }
-      return null;
-    }).filter((b64): b64 is string => b64 !== null);
+  const generationResponses = await Promise.all(generationPromises);
 
-    if (imagesWithGreenScreen.length === 0) {
-        throw new Error("No icons were generated. The model may have refused the prompt.");
+  const imagesWithGreenScreen = generationResponses.map(response => {
+    const firstPart = response.candidates?.[0]?.content?.parts?.[0];
+    if (firstPart && firstPart.inlineData) {
+      return firstPart.inlineData.data;
     }
-    
-    return imagesWithGreenScreen;
+    return null;
+  }).filter((b64): b64 is string => b64 !== null);
 
+  if (imagesWithGreenScreen.length === 0) {
+      throw new Error("No icons were generated. The model may have refused the prompt.");
+  }
+  
+  return imagesWithGreenScreen;
+};
+
+
+export const generateIcons = async (generationPrompt: string, numVariants: number): Promise<string[]> => {
+  try {
+    return await callGenerationApi(generationPrompt, numVariants);
   } catch (error) {
     console.error("Error generating icons:", error);
     throw new Error("Failed to generate icons from the API.");
   }
 };
 
-// FIX: Add generateImage function to be used by ImageGenerator.tsx.
+export const generateReferencedIcon = async (
+  generationPrompt: string,
+  numVariants: number,
+  referenceImageB64: string
+): Promise<string[]> => {
+  try {
+    return await callGenerationApi(generationPrompt, numVariants, referenceImageB64);
+  } catch (error) {
+    console.error("Error generating referenced icon:", error);
+    throw new Error("Failed to generate referenced icon from the API.");
+  }
+};
+
 export const generateImage = async (prompt: string): Promise<string> => {
   try {
     const response = await ai.models.generateImages({
@@ -105,7 +176,6 @@ export const generateImage = async (prompt: string): Promise<string> => {
   }
 };
 
-// FIX: Add editImage function to be used by ImageEditor.tsx.
 export const editImage = async (base64ImageData: string, mimeType: string, prompt: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({

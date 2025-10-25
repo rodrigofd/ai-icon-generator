@@ -69,3 +69,46 @@ export const removeGreenScreen = (base64Image: string, tolerance: number = 25): 
         img.src = `data:image/png;base64,${base64Image}`;
     });
 };
+
+/**
+ * Resizes an image to fit within a new canvas, creating transparent padding.
+ * The canvas size is kept the same as the original image.
+ * @param {string} dataUrl - The base64 data URL of the image.
+ * @param {number} padding - The number of transparent pixels to add on each side.
+ * @returns {Promise<string>} - A promise that resolves with the base64 data URL of the padded image.
+ */
+export const addPadding = (dataUrl: string, padding: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        if (padding <= 0) {
+            resolve(dataUrl);
+            return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+
+            if (!ctx) {
+                return reject(new Error('Could not get 2D canvas context'));
+            }
+
+            const newImageWidth = img.width - (padding * 2);
+            const newImageHeight = img.height - (padding * 2);
+            
+            // If padding is too large, it results in a blank (transparent) image of the same size.
+            if (newImageWidth > 0 && newImageHeight > 0) {
+                // Draw the original image onto the canvas, scaled down and offset by the padding.
+                ctx.drawImage(img, padding, padding, newImageWidth, newImageHeight);
+            }
+
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = (err) => {
+            reject(new Error(`Failed to load image for padding: ${err}`));
+        };
+        img.src = dataUrl;
+    });
+};

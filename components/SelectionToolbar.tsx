@@ -26,18 +26,18 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   return (
     <div
       data-selection-toolbar="true"
-      className="fixed bottom-5 left-1/2 -translate-x-1/2 w-auto max-w-[90vw] z-50 bg-gray-800/80 backdrop-blur-md border border-gray-600 rounded-lg shadow-2xl p-2 flex items-center justify-between gap-4 transition-opacity duration-300"
+      className="fixed bottom-5 left-1/2 -translate-x-1/2 w-auto max-w-[90vw] z-50 bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur-md border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl p-2 flex items-center justify-between gap-4 transition-opacity duration-300"
     >
         <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-white pl-2">
+            <span className="text-sm font-medium text-gray-800 dark:text-white pl-2">
                 {selectedCount} selected
             </span>
 
-            <div className="h-6 w-px bg-gray-600" />
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
             
             <button
                 onClick={onToggleSelectAll}
-                className="text-sm font-semibold text-purple-400 hover:text-purple-300 transition-colors px-3 py-1.5 rounded-md hover:bg-gray-700"
+                className="text-sm font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors px-3 py-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
             >
                 {allSelected ? 'Deselect All' : 'Select All'}
             </button>
@@ -46,14 +46,14 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
         <div className="flex items-center gap-2">
             <button
                 onClick={onDownload}
-                className="p-2 bg-gray-700 rounded-md text-gray-300 hover:bg-purple-600 hover:text-white transition-colors flex items-center gap-2"
+                className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 hover:bg-purple-500 dark:hover:bg-purple-600 hover:text-white dark:hover:text-white transition-colors flex items-center gap-2"
                 title="Download Selected"
             >
                 <DownloadIcon className="w-5 h-5" />
             </button>
             <button
                 onClick={onDelete}
-                className="p-2 bg-gray-700 rounded-md text-gray-300 hover:bg-red-600 hover:text-white transition-colors flex items-center gap-2"
+                className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 hover:bg-red-500 dark:hover:bg-red-600 hover:text-white dark:hover:text-white transition-colors flex items-center gap-2"
                 title="Delete Selected"
             >
                 <TrashIcon className="w-5 h-5" />
