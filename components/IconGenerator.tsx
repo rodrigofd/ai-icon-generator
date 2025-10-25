@@ -240,14 +240,18 @@ const IconGenerator: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-      if ((e.target as HTMLElement)?.closest('input, textarea')) return;
 
+      // Handle form submission with Ctrl+Enter globally, including inside text areas.
       if (isCtrlOrCmd && e.key === 'Enter') {
         e.preventDefault();
         if (!isLoading) {
           formRef.current?.requestSubmit();
         }
+        return; // Submission is a terminal action for this handler.
       }
+
+      // For all other shortcuts, ignore them if the user is typing in an input.
+      if ((e.target as HTMLElement)?.closest('input, textarea')) return;
 
       if (e.key === 'Escape') {
         if (selectedIds.size > 0) setSelectedIds(new Set());
