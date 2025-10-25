@@ -4,6 +4,10 @@ import sharp from 'sharp';
 import { IconStyle } from './types';
 // FIX: Import Buffer to resolve type errors in Node.js environment.
 import { Buffer } from 'buffer';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 // --- Environment Setup ---
 const API_KEY = process.env.API_KEY;
