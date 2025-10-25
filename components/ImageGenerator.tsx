@@ -39,14 +39,14 @@ const ImageGenerator: React.FC = () => {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="e.g., A majestic lion with a crown of stars"
-            className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-3 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
+            className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-3 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
             rows={3}
           />
         </div>
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full flex justify-center items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 dark:disabled:bg-purple-900 disabled:text-gray-200 dark:disabled:text-gray-400 text-white font-bold py-3 px-4 rounded-md transition-colors duration-300"
+          className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 dark:disabled:bg-teal-900 disabled:text-gray-200 dark:disabled:text-gray-400 text-white font-bold py-3 px-4 rounded-md transition-colors duration-300"
         >
           {isLoading ? <><Spinner /> Generating...</> : 'Generate Image'}
         </button>

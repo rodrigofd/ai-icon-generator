@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 
 interface ToastAction {
@@ -60,7 +61,7 @@ const Toast: React.FC<ToastProps> = ({ message, action, onClose }) => {
       {action && (
         <button
           onClick={handleActionClick}
-          className="font-bold text-purple-300 hover:text-purple-200 underline text-sm whitespace-nowrap"
+          className="font-bold text-teal-300 hover:text-teal-200 underline text-sm whitespace-nowrap"
         >
           {action.label}
         </button>

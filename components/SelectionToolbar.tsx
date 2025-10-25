@@ -1,3 +1,4 @@
+
 import React from 'react';
 import DownloadIcon from './icons/DownloadIcon';
 import TrashIcon from './icons/TrashIcon';
@@ -37,7 +38,7 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
             
             <button
                 onClick={onToggleSelectAll}
-                className="text-sm font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors px-3 py-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
+                className="text-sm font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 transition-colors px-3 py-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
             >
                 {allSelected ? 'Deselect All' : 'Select All'}
             </button>
@@ -46,7 +47,7 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
         <div className="flex items-center gap-2">
             <button
                 onClick={onDownload}
-                className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 hover:bg-purple-500 dark:hover:bg-purple-600 hover:text-white dark:hover:text-white transition-colors flex items-center gap-2"
+                className="p-2 bg-gray-200 dark:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 hover:bg-teal-500 dark:hover:bg-teal-600 hover:text-white dark:hover:text-white transition-colors flex items-center gap-2"
                 title="Download Selected"
             >
                 <DownloadIcon className="w-5 h-5" />

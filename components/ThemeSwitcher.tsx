@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import SunIcon from './icons/SunIcon';
@@ -53,7 +54,7 @@ const ThemeSwitcher: React.FC = () => {
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md text-left transition-colors
                   ${theme === option.value
-                    ? 'bg-purple-500 text-white'
+                    ? 'bg-teal-500 text-white'
                     : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }
                 `}

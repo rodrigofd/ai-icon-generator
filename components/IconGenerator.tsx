@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { generateIcons, generateReferencedIcon, getStyleDescription, getSafeMaskColor } from '../services/geminiService';
 import { IconStyle, GeneratedIcon } from '../types';
@@ -26,12 +27,12 @@ const allPaletteColors = Object.values({
 const getRandomPaletteColor = () => allPaletteColors[Math.floor(Math.random() * allPaletteColors.length)];
 
 const STYLE_OPTIONS = [
-  { id: IconStyle.FLAT_SINGLE_COLOR, label: 'Flat', imageUrl: '/assets/style-flat.png' },
-  { id: IconStyle.FLAT_COLORED, label: 'Colored', imageUrl: '/assets/style-colored.png' },
-  { id: IconStyle.OUTLINE, label: 'Outline', imageUrl: '/assets/style-outline.png' },
-  { id: IconStyle.GRADIENT, label: 'Gradient', imageUrl: '/assets/style-gradient.png' },
-  { id: IconStyle.ISOMETRIC, label: 'Isometric', imageUrl: '/assets/style-isometric.png' },
-  { id: IconStyle.THREE_D, label: '3D Render', imageUrl: '/assets/style-3d-render.png' },
+  { id: IconStyle.FLAT_SINGLE_COLOR, label: 'Flat', imageUrl: './assets/style-flat.png' },
+  { id: IconStyle.FLAT_COLORED, label: 'Colored', imageUrl: './assets/style-colored.png' },
+  { id: IconStyle.OUTLINE, label: 'Outline', imageUrl: './assets/style-outline.png' },
+  { id: IconStyle.GRADIENT, label: 'Gradient', imageUrl: './assets/style-gradient.png' },
+  { id: IconStyle.ISOMETRIC, label: 'Isometric', imageUrl: './assets/style-isometric.png' },
+  { id: IconStyle.THREE_D, label: '3D Render', imageUrl: './assets/style-3d-render.png' },
 ];
 
 const VARIANT_OPTIONS = [1, 2, 4, 8];
@@ -66,8 +67,8 @@ const StyleSelector: React.FC<{ selected: IconStyle, onSelect: (style: IconStyle
           className={`
             flex flex-col items-center justify-center p-2 rounded-md border-2 transition-all duration-200 transform hover:scale-105 active:scale-95
             ${selected === style.id 
-              ? 'bg-purple-500/10 dark:bg-purple-500/20 border-purple-500 scale-105' 
-              : 'bg-gray-100/50 dark:bg-gray-900/50 border-gray-300 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500'
+              ? 'bg-teal-500/10 dark:bg-teal-500/20 border-teal-500 scale-105' 
+              : 'bg-gray-100/50 dark:bg-gray-900/50 border-gray-300 dark:border-gray-700 hover:border-teal-400 dark:hover:border-teal-500'
             }
           `}
         >
@@ -490,16 +491,16 @@ const IconGenerator: React.FC = () => {
   return (
     <div className="space-y-8" onMouseDown={handleMouseDown}>
       {toast && <Toast message={toast.message} action={toast.action} onClose={() => setToast(null)} />}
-      {selectionBox && <div className="fixed bg-purple-500/20 border-2 border-purple-500 rounded pointer-events-none z-50" style={{ left: selectionBox.x, top: selectionBox.y, width: selectionBox.width, height: selectionBox.height }} />}
+      {selectionBox && <div className="fixed bg-teal-500/20 border-2 border-teal-500 rounded pointer-events-none z-50" style={{ left: selectionBox.x, top: selectionBox.y, width: selectionBox.width, height: selectionBox.height }} />}
       <SelectionToolbar selectedCount={selectedIds.size} totalCount={history.length} onDelete={handleDeleteSelected} onDownload={handleDownloadSelected} onToggleSelectAll={handleToggleSelectAll} />
       <form ref={formRef} onSubmit={handleSubmit} className="p-6 bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
         
         {referenceIcon && (
-          <div className="mb-4 p-3 bg-purple-50 dark:bg-gray-700/50 rounded-lg flex items-center justify-between border border-purple-200 dark:border-gray-600">
+          <div className="mb-4 p-3 bg-teal-50 dark:bg-gray-700/50 rounded-lg flex items-center justify-between border border-teal-200 dark:border-gray-600">
             <div className="flex items-center gap-3 overflow-hidden">
               <img src={referenceIcon.icon.pngSrc} className="w-12 h-12 rounded-md flex-shrink-0" alt="Reference Icon" />
               <div className="overflow-hidden">
-                <span className="text-lg font-bold text-purple-800 dark:text-purple-300">
+                <span className="text-lg font-bold text-teal-800 dark:text-teal-300">
                   {referenceIcon.mode === 'edit' ? 'Editing Icon' : 'Inspired by Icon'}
                 </span>
                 <p className="text-base text-gray-500 dark:text-gray-400 truncate">
@@ -507,7 +508,7 @@ const IconGenerator: React.FC = () => {
                 </p>
               </div>
             </div>
-            <button type="button" onClick={() => setReferenceIcon(null)} className="p-1 rounded-full hover:bg-purple-200 dark:hover:bg-gray-600 flex-shrink-0 ml-2 transition-colors" title="Clear reference">
+            <button type="button" onClick={() => setReferenceIcon(null)} className="p-1 rounded-full hover:bg-teal-200 dark:hover:bg-gray-600 flex-shrink-0 ml-2 transition-colors" title="Clear reference">
               <XCircleIcon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
             </button>
           </div>
@@ -527,7 +528,7 @@ const IconGenerator: React.FC = () => {
                 referenceIcon?.mode === 'inspire' ? 'e.g., A shield with a star' :
                 'e.g., A smiling coffee cup'
               }
-              className="w-full h-full min-h-[240px] bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-3 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
+              className="w-full h-full min-h-[240px] bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-3 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
             />
           </div>
 
@@ -540,7 +541,7 @@ const IconGenerator: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Color</label>
-                 <div onClick={() => { document.getElementById('native-color-picker')?.click(); }} className="relative w-full h-12 border border-gray-300 dark:border-gray-600 rounded-md flex items-center justify-center text-center cursor-pointer focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-purple-500 transition-all" style={{ backgroundColor: color }}>
+                 <div onClick={() => { document.getElementById('native-color-picker')?.click(); }} className="relative w-full h-12 border border-gray-300 dark:border-gray-600 rounded-md flex items-center justify-center text-center cursor-pointer focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-teal-500 transition-all" style={{ backgroundColor: color }}>
                     <span className="font-mono font-semibold text-base tracking-wider" style={{ color: contrastColor, mixBlendMode: 'difference' }}>{color.toUpperCase()}</span>
                     <input id="native-color-picker" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute w-full h-full opacity-0 pointer-events-auto cursor-pointer" tabIndex={-1} />
                 </div>
@@ -548,16 +549,29 @@ const IconGenerator: React.FC = () => {
               <div>
                 <label htmlFor="variants" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Variants</label>
                  <div className="flex items-center justify-between w-full h-12 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-gray-100">
-                    <button type="button" onClick={() => handleVariantChange('dec')} disabled={numVariants === VARIANT_OPTIONS[0]} className="px-4 py-2 text-2xl font-light text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed transition-colors">-</button>
-                    <span id="variants" className="text-xl font-semibold text-purple-600 dark:text-purple-400">{numVariants}</span>
-                    <button type="button" onClick={() => handleVariantChange('inc')} disabled={numVariants === VARIANT_OPTIONS[VARIANT_OPTIONS.length - 1]} className="px-4 py-2 text-2xl font-light text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed transition-colors">+</button>
+                    <button type="button" onClick={() => handleVariantChange('dec')} disabled={numVariants === VARIANT_OPTIONS[0]} className="px-4 py-2 text-2xl font-light text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed transition-colors">-</button>
+                    <span id="variants" className="text-xl font-semibold text-teal-600 dark:text-teal-400">{numVariants}</span>
+                    <button type="button" onClick={() => handleVariantChange('inc')} disabled={numVariants === VARIANT_OPTIONS[VARIANT_OPTIONS.length - 1]} className="px-4 py-2 text-2xl font-light text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed transition-colors">+</button>
                 </div>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <label htmlFor="ui-icon-toggle" className="text-sm text-gray-700 dark:text-gray-300">Optimize for UI</label>
-              <Switch id="ui-icon-toggle" checked={isUiIcon} onChange={setIsUiIcon} />
+               <div>
+                <label htmlFor="ui-icon-toggle" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Optimize for UI</label>
+                <div className="flex items-center w-full h-12">
+                  <Switch id="ui-icon-toggle" checked={isUiIcon} onChange={setIsUiIcon} />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="padding" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Padding (px)</label>
+                <input
+                    id="padding"
+                    type="number"
+                    value={padding}
+                    onChange={e => setPadding(Math.max(0, Math.min(255, parseInt(e.target.value, 10) || 0)))}
+                    className="w-full h-12 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
+                    min="0"
+                    max="255"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -568,34 +582,21 @@ const IconGenerator: React.FC = () => {
                 type="checkbox"
                 checked={isAdvancedOpen}
                 onChange={e => setIsAdvancedOpen(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-purple-600 focus:ring-purple-500"
+                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-teal-600 focus:ring-teal-500"
             />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Show Advanced Options</span>
           </label>
         </div>
         
         <div className={`transition-[max-height,padding] duration-500 ease-in-out overflow-hidden ${isAdvancedOpen ? 'max-h-[500px] pt-4' : 'max-h-0 pt-0'}`}>
-          <div className="p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800/80 space-y-4">
-              <div>
-                  <label htmlFor="padding" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Internal Padding (pixels)</label>
-                  <input
-                      id="padding"
-                      type="number"
-                      value={padding}
-                      onChange={e => setPadding(Math.max(0, Math.min(255, parseInt(e.target.value, 10) || 0)))}
-                      className="w-full md:w-1/3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
-                      min="0"
-                      max="255"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Adds transparent space inside the icon's 512x512 frame.</p>
-              </div>
+          <div className="p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800/80">
               <div>
                   <label htmlFor="custom-prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Editable Generation Prompt</label>
                   <textarea
                       id="custom-prompt"
                       value={customPrompt}
                       onChange={e => setCustomPrompt(e.target.value)}
-                      className="w-full h-56 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-3 text-sm font-mono text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
+                      className="w-full h-56 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-3 text-sm font-mono text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">This is the full prompt sent to the AI. It updates automatically when you change settings above.</p>
               </div>
@@ -603,7 +604,7 @@ const IconGenerator: React.FC = () => {
         </div>
         
         <div className="mt-8 flex justify-center">
-            <button type="submit" disabled={isLoading} className={`w-full md:w-1/3 flex justify-center items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-md transition-all duration-300 ${isLoading ? 'bg-purple-800 dark:bg-purple-900 text-gray-200 dark:text-gray-400 animate-pulse' : 'transform active:scale-95 hover:scale-[1.02]'}`}>
+            <button type="submit" disabled={isLoading} className={`w-full md:w-1/3 flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-md transition-all duration-300 ${isLoading ? 'bg-teal-800 dark:bg-teal-900 text-gray-200 dark:text-gray-400 animate-pulse' : 'transform active:scale-95 hover:scale-[1.02]'}`}>
               {isLoading ? <><Spinner /> Generating...</> : (referenceIcon ? 'Generate New Icon' : 'Generate Icons')}
             </button>
         </div>

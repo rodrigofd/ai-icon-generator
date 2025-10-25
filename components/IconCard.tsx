@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { downloadPng, copyPngToClipboard } from '../utils/fileUtils';
 import ClipboardIcon from './icons/ClipboardIcon';
@@ -36,12 +37,12 @@ const IconCard: React.FC<IconCardProps> = ({ id, pngSrc, prompt, isSelected, onD
     <div
       data-icon-card="true"
       onClick={(e) => onSelect(e, id)}
-      className={`relative group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col items-center justify-center aspect-square transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10 cursor-pointer animate-fade-in-scale
-        ${isSelected ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}
+      className={`relative group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col items-center justify-center aspect-square transition-all duration-200 hover:shadow-lg hover:shadow-teal-500/10 cursor-pointer animate-fade-in-scale
+        ${isSelected ? 'ring-2 ring-teal-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}
       `}
     >
       {isSelected && (
-        <div className="absolute top-2 left-2 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center z-10 pointer-events-none animate-fade-in-scale">
+        <div className="absolute top-2 left-2 w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center z-10 pointer-events-none animate-fade-in-scale">
           <CheckIcon className="w-4 h-4 text-white" />
         </div>
       )}
@@ -53,7 +54,7 @@ const IconCard: React.FC<IconCardProps> = ({ id, pngSrc, prompt, isSelected, onD
       <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onClick={handleActionClick}>
         <button
           onClick={() => onEditRequest(id)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-purple-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
+          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-teal-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
           style={{ transitionDelay: '50ms' }}
           title="Edit Icon"
         >
@@ -61,7 +62,7 @@ const IconCard: React.FC<IconCardProps> = ({ id, pngSrc, prompt, isSelected, onD
         </button>
         <button
           onClick={() => onInspireRequest(id)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-purple-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
+          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-teal-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
           style={{ transitionDelay: '100ms' }}
           title="Generate Similar"
         >
@@ -69,7 +70,7 @@ const IconCard: React.FC<IconCardProps> = ({ id, pngSrc, prompt, isSelected, onD
         </button>
         <button
           onClick={() => copyPngToClipboard(pngSrc)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-purple-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
+          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-teal-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
           style={{ transitionDelay: '150ms' }}
           title="Copy as PNG"
         >
@@ -77,7 +78,7 @@ const IconCard: React.FC<IconCardProps> = ({ id, pngSrc, prompt, isSelected, onD
         </button>
         <button
           onClick={() => downloadPng(pngSrc, iconName)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-purple-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
+          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-teal-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
           style={{ transitionDelay: '200ms' }}
           title="Download PNG"
         >
