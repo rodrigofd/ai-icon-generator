@@ -74,16 +74,19 @@ const generateFullPrompt = (prompt: string, style: IconStyle, color: string, isU
 
 // --- Server-Side Image Processing using Sharp ---
 
-const removeGreenScreenNode = async (base64Image: string, maskColorHex: string, tolerance: number = 25): Promise<string> => {
-    const bgRgb = hexToRgb(maskColorHex);
-    if (!bgRgb) throw new Error('Invalid mask color hex for background removal.');
-    
+const removeGreenScreenNode = async (base64Image: string, tolerance: number = 25): Promise<string> => {
     const imageBuffer = Buffer.from(base64Image, 'base64');
     
     const { data: pixelBuffer, info } = await sharp(imageBuffer)
         .ensureAlpha() // Ensure image has an alpha channel
         .raw()
         .toBuffer({ resolveWithObject: true });
+
+    // Dynamically sample the top-left pixel to determine the background color.
+    const bgR = pixelBuffer[0];
+    const bgG = pixelBuffer[1];
+    const bgB = pixelBuffer[2];
+    const bgRgb = { r: bgR, g: bgG, b: bgB };
 
     // Iterate through pixels and make matching ones transparent
     for (let i = 0; i < pixelBuffer.length; i += info.channels) {
@@ -178,10 +181,9 @@ app.post('/generate', async (req: Request, res: Response) => {
         const generatedImages = await callGenerationApi(fullPrompt, numVariants);
         
         const tolerance = style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25;
-        const maskColor = getSafeMaskColor(color);
 
         const processedImages = await Promise.all(generatedImages.map(async (b64) => {
-            const transparentB64 = await removeGreenScreenNode(b64, maskColor, tolerance);
+            const transparentB64 = await removeGreenScreenNode(b64, tolerance);
             return addPaddingNode(transparentB64, padding);
         }));
 
