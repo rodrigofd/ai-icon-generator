@@ -45,10 +45,14 @@ const COLOR_DISTANCE_THRESHOLD = 120;      // How close colors can be before swi
 
 /**
  * Selects a safe background color for generation that is unlikely to clash with the user's chosen color.
- * @param userColorHex The color the user selected for their icon.
+ * @param userColorHex The color the user selected for their icon. Can be undefined.
  * @returns A hex string for a safe background color to use in the prompt.
  */
-export const getSafeMaskColor = (userColorHex: string): string => {
+export const getSafeMaskColor = (userColorHex?: string): string => {
+  if (!userColorHex) {
+    return PRIMARY_MASK_COLOR_HEX;
+  }
+
   const userColorRgb = hexToRgb(userColorHex);
   if (!userColorRgb) {
     return PRIMARY_MASK_COLOR_HEX; // Default if user color is somehow invalid
@@ -57,8 +61,6 @@ export const getSafeMaskColor = (userColorHex: string): string => {
   const primaryMaskRgb = hexToRgb(PRIMARY_MASK_COLOR_HEX)!;
   if (colorDistance(userColorRgb, primaryMaskRgb) < COLOR_DISTANCE_THRESHOLD) {
     // User's color is too close to green, so switch to the blue fallback.
-    // In a rare case the user's color is also close to blue, this logic could
-    // be extended to a third color, but blue is a very safe bet.
     return SECONDARY_MASK_COLOR_HEX;
   }
 
@@ -66,22 +68,24 @@ export const getSafeMaskColor = (userColorHex: string): string => {
 };
 
 
-export const getStyleDescription = (style: IconStyle, color: string): string => {
+export const getStyleDescription = (style: IconStyle, color?: string): string => {
   switch (style) {
     case IconStyle.FLAT_SINGLE_COLOR:
       return `A modern, flat design style icon. The icon must be a single solid shape, using only the color ${color}.`;
     case IconStyle.FLAT_COLORED:
-      return `A modern, flat design style icon using a vibrant but simple color palette (2-3 colors max), with ${color} as the prominent, primary color. Do not use gradients.`;
+      return `A modern, flat design style icon using a vibrant but simple color palette (2-3 colors max). Do not use gradients.`;
     case IconStyle.OUTLINE:
       return `A modern, minimalist line-art style icon. The icon must be composed of outlines only, using the color ${color}. The stroke width should be consistent and clean. The inside of the shape must be empty.`;
     case IconStyle.GRADIENT:
-      return `A modern, flat design style icon using smooth, vibrant gradients. The prominent color should be ${color}.`;
+      return `A modern, flat design style icon using smooth, vibrant gradients.`;
     case IconStyle.ISOMETRIC:
-      return `A modern, clean, isometric style icon. The prominent color should be ${color}.`;
+      return `A modern, clean, isometric style icon.`;
     case IconStyle.THREE_D:
-      return `A high-quality 3D rendered icon with a clean aesthetic, soft lighting, and subtle shadows. The prominent color should be ${color}.`;
+      return `A high-quality 3D rendered icon with a clean aesthetic, soft lighting, and subtle shadows.`;
     default:
-      return `A standard, modern icon style using the primary color ${color}.`;
+      return color
+        ? `A standard, modern icon style using the primary color ${color}.`
+        : `A standard, modern icon style.`;
   }
 };
 

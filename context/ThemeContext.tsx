@@ -10,14 +10,20 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    try {
-      const storedTheme = window.localStorage.getItem('theme') as Theme | null;
-      return storedTheme || 'system';
-    } catch (e) {
-      return 'system';
-    }
-  });
+  const [theme, setTheme] = useState<Theme>('system');
+
+  useEffect(() => {
+    // Asynchronously load the theme from localforage on component mount.
+    window.localforage.getItem('theme')
+      .then((storedTheme: Theme | null) => {
+        if (storedTheme) {
+          setTheme(storedTheme);
+        }
+      })
+      .catch((e: Error) => {
+        console.error("Failed to load theme from localforage", e);
+      });
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -28,11 +34,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     root.classList.remove(isDark ? 'light' : 'dark');
     root.classList.add(isDark ? 'dark' : 'light');
     
-    try {
-        window.localStorage.setItem('theme', theme);
-    } catch(e) {
-        console.error("Failed to save theme to localStorage", e);
-    }
+    // Asynchronously save theme changes to localforage.
+    window.localforage.setItem('theme', theme).catch((e: Error) => {
+      console.error("Failed to save theme to localforage", e);
+    });
   }, [theme]);
 
   useEffect(() => {

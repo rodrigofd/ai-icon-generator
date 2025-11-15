@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import SunIcon from './icons/SunIcon';
@@ -29,6 +28,7 @@ const ThemeSwitcher: React.FC = () => {
   ];
 
   const currentIcon = options.find(opt => opt.value === theme)?.icon;
+  const currentLabel = options.find(opt => opt.value === theme)?.label;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -36,11 +36,14 @@ const ThemeSwitcher: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
         aria-label="Toggle theme"
+        title={`Change theme (current: ${currentLabel})`}
       >
-        {currentIcon}
+        <span className={`inline-block transition-transform duration-300 ease-in-out ${isOpen ? 'rotate-90' : ''}`}>
+          {currentIcon}
+        </span>
       </button>
       <div 
-        className={`absolute top-full right-0 mt-2 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 transition-all duration-150 ease-out origin-top-right
+        className={`absolute top-full right-0 mt-2 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 transition-all duration-200 ease-out origin-top-right
           ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}
         `}
       >

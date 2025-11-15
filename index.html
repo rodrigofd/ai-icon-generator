@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -12,6 +11,8 @@
         darkMode: 'class',
       }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/localforage/dist/localforage.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script type="importmap">
 {
   "imports": {
@@ -27,17 +28,76 @@
 }
 </script>
 <style>
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
   @keyframes fadeInScale {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from { opacity: 0; transform: scale(0.9) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
   }
   .animate-fade-in-scale {
-    animation: fadeInScale 0.4s ease-out forwards;
+    animation: fadeInScale 0.5s cubic-bezier(0.21, 0.61, 0.35, 1) forwards;
+  }
+  @keyframes fadeOutScale {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95) translateY(10px); }
+  }
+  .animate-fade-out-scale {
+    animation: fadeOutScale 0.4s ease-out forwards;
+  }
+  @keyframes gradient-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .btn-generating {
+    background-size: 200% 200%;
+    animation: gradient-animation 4s ease infinite;
+  }
+
+  #splash {
+    position: fixed;
+    inset: 0;
+    background: #2e2a8b; /* tu color base */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    transition: opacity 0.4s ease;
+  }
+
+  #splash img {
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;     /* mantiene aspect ratio */
+    object-position: center;
+    max-width: none;
+    max-height: none;
   }
 </style>
 </head>
   <body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white overflow-x-hidden">
+    <div id="splash">
+      <img src="./assets/splash.png">
+    </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      window.addEventListener("load", () => {
+        // Garantiza que el splash viva un poco, ej. 350 ms adicionales
+        setTimeout(() => {
+          const splash = document.getElementById("splash");
+          splash.style.opacity = "0";
+
+          // Lo removemos del DOM después de la transición
+          setTimeout(() => splash.remove(), 500);
+        }, 350);
+      });
+    </script>
+   
   </body>
 </html>

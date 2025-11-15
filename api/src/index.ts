@@ -33,38 +33,43 @@ const PRIMARY_MASK_COLOR_HEX = '#00b140';
 const SECONDARY_MASK_COLOR_HEX = '#0000FF';
 const COLOR_DISTANCE_THRESHOLD = 120;
 
-const getSafeMaskColor = (userColorHex: string): string => {
+const getSafeMaskColor = (userColorHex?: string): string => {
+  if (!userColorHex) return PRIMARY_MASK_COLOR_HEX;
   const userColorRgb = hexToRgb(userColorHex);
   if (!userColorRgb) return PRIMARY_MASK_COLOR_HEX;
   const primaryMaskRgb = hexToRgb(PRIMARY_MASK_COLOR_HEX)!;
   return colorDistance(userColorRgb, primaryMaskRgb) < COLOR_DISTANCE_THRESHOLD ? SECONDARY_MASK_COLOR_HEX : PRIMARY_MASK_COLOR_HEX;
 };
 
-const getStyleDescription = (style: IconStyle, color: string): string => {
+const getStyleDescription = (style: IconStyle, color?: string): string => {
   switch (style) {
     case IconStyle.FLAT_SINGLE_COLOR:
       return `A modern, flat design style icon. The icon must be a single solid shape, using only the color ${color}.`;
     case IconStyle.FLAT_COLORED:
-      return `A modern, flat design style icon using a vibrant but simple color palette (2-3 colors max), with ${color} as the prominent, primary color. Do not use gradients.`;
+      return `A modern, flat design style icon using a vibrant but simple color palette (2-3 colors max). Do not use gradients.`;
     case IconStyle.OUTLINE:
       return `A modern, minimalist line-art style icon. The icon must be composed of outlines only, using the color ${color}. The stroke width should be consistent and clean. The inside of the shape must be empty.`;
     case IconStyle.GRADIENT:
-      return `A modern, flat design style icon using smooth, vibrant gradients. The prominent color should be ${color}.`;
+      return `A modern, flat design style icon using smooth, vibrant gradients.`;
     case IconStyle.ISOMETRIC:
-      return `A modern, clean, isometric style icon. The prominent color should be ${color}.`;
+      return `A modern, clean, isometric style icon.`;
     case IconStyle.THREE_D:
-      return `A high-quality 3D rendered icon with a clean aesthetic, soft lighting, and subtle shadows. The prominent color should be ${color}.`;
+      return `A high-quality 3D rendered icon with a clean aesthetic, soft lighting, and subtle shadows.`;
     default:
-      return `A standard, modern icon style using the primary color ${color}.`;
+      return color
+        ? `A standard, modern icon style using the primary color ${color}.`
+        : `A standard, modern icon style.`;
   }
 };
 
 const generateFullPrompt = (prompt: string, style: IconStyle, color: string, isUiIcon: boolean, padding: number): string => {
-    const styleDescription = getStyleDescription(style, color);
+    const isSingleColorStyle = style === IconStyle.FLAT_SINGLE_COLOR || style === IconStyle.OUTLINE;
+
+    const styleDescription = getStyleDescription(style, isSingleColorStyle ? color : undefined);
     const purposeDescription = isUiIcon
       ? "The icon must be simple, clear, and instantly recognizable for a user interface."
       : "This is a general-purpose icon.";
-    const maskColor = getSafeMaskColor(color);
+    const maskColor = getSafeMaskColor(isSingleColorStyle ? color : undefined);
     const paddingInstruction = padding > 0 ? "The icon artwork must be drawn to the absolute edges of the 512x512 frame, with no internal padding or margin. It should touch all four sides of the canvas." : "";
 
     return `Generate a single, high-resolution 512x512 icon of a "${prompt}".

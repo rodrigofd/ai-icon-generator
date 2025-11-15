@@ -15,3 +15,12 @@ export interface GeneratedIcon {
   color: string;
   isUiIcon: boolean;
 }
+
+// Make localforage available on the window object globally,
+// as it's loaded via a script tag in index.html.
+declare global {
+  interface Window {
+    localforage: any;
+    JSZip: any;
+  }
+}
