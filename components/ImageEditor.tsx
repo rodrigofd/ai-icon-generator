@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, ChangeEvent } from 'react';
 import { editImage } from '../services/geminiService';
 import Spinner from './Spinner';
@@ -14,7 +13,7 @@ const ImageEditor: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       setOriginalImage({ file, url: URL.createObjectURL(file) });
-      setEditedImage(null); // Reset edited image on new file upload
+      setEditedImage(null);
     }
   };
   
@@ -22,23 +21,14 @@ const ImageEditor: React.FC = () => {
     new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        reader.onload = () => {
-            const result = (reader.result as string).split(',')[1];
-            resolve(result);
-        };
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
         reader.onerror = error => reject(error);
     });
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!originalImage) {
-      setError("Please upload an image first.");
-      return;
-    }
-    if (!prompt.trim()) {
-      setError("Edit instruction prompt cannot be empty.");
-      return;
-    }
+    if (!originalImage) { setError("Please upload an image first."); return; }
+    if (!prompt.trim()) { setError("Edit instruction prompt cannot be empty."); return; }
     
     setIsLoading(true);
     setError(null);
@@ -56,61 +46,75 @@ const ImageEditor: React.FC = () => {
   }, [prompt, originalImage]);
 
   return (
-    <div className="space-y-8">
-      <form onSubmit={handleSubmit} className="p-6 bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="image-upload" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">1. Upload Image</label>
+          <label htmlFor="image-upload" className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>1. Upload Image</label>
           <input
             id="image-upload"
             type="file"
             accept="image/*"
             onChange={handleFileChange}
-            className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-100 file:text-teal-700 hover:file:bg-teal-200 dark:file:bg-teal-900/50 dark:file:text-teal-300 dark:hover:file:bg-teal-900"
+            className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border file:text-sm file:font-semibold file:bg-transparent hover:file:opacity-80"
+            style={{ 
+              color: 'var(--color-text-dim)', 
+              '--file-border-color': 'var(--color-border)', 
+              '--file-text-color': 'var(--color-text)' 
+            } as any}
           />
         </div>
 
         <div>
-          <label htmlFor="prompt-edit" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">2. Describe Your Edit</label>
+          <label htmlFor="prompt-edit" className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>2. Describe Your Edit</label>
           <input
             id="prompt-edit"
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="e.g., Remove the person in the background"
-            className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-3 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
+            className="w-full bg-transparent border rounded-lg p-3 focus:outline-none focus:ring-2 focus:shadow-[var(--shadow-inner-sm)]"
+            // FIX: Replaced invalid `ringColor` property with the correct CSS custom property `--tw-ring-color`
+            // to align with Tailwind's ring utilities and resolve the TypeScript error.
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)', '--tw-ring-color': 'var(--color-accent)' } as React.CSSProperties}
           />
         </div>
 
         <button
           type="submit"
           disabled={isLoading || !originalImage}
-          className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 dark:disabled:bg-teal-900 disabled:text-gray-100 dark:disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-md transition-colors duration-300"
+          className="w-full flex justify-center items-center gap-2 font-bold py-3 px-4 border rounded-lg text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5"
+          style={{
+            background: `linear-gradient(45deg, var(--color-accent), var(--color-accent-dark))`,
+            color: '#FFFFFF',
+            borderColor: 'transparent',
+            opacity: (isLoading || !originalImage) ? 0.7 : 1,
+          }}
         >
           {isLoading ? <><Spinner /> Applying Edit...</> : 'Apply Edit'}
         </button>
       </form>
 
-      {error && <div className="text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-3 rounded-md text-center">{error}</div>}
+      {error && <div className="text-red-500 border border-red-500 bg-red-500/10 p-3 text-center rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="flex flex-col items-center">
-            <h3 className="text-lg font-semibold mb-2 text-gray-500 dark:text-gray-400">Original</h3>
-            <div className="w-full aspect-square bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center">
+            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Original</h3>
+            <div className="w-full aspect-square border rounded-lg flex items-center justify-center p-2" style={{ borderColor: 'var(--color-border)' }}>
                 {originalImage ? (
-                    <img src={originalImage.url} alt="Original" className="max-w-full max-h-full object-contain rounded-lg"/>
+                    <img src={originalImage.url} alt="Original" className="max-w-full max-h-full object-contain rounded-md"/>
                 ) : (
-                    <span className="text-gray-500">Upload an image to start</span>
+                    <span style={{ color: 'var(--color-text-dim)' }}>Upload an image to start</span>
                 )}
             </div>
         </div>
         <div className="flex flex-col items-center">
-            <h3 className="text-lg font-semibold mb-2 text-gray-500 dark:text-gray-400">Edited</h3>
-            <div className="w-full aspect-square bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center">
-                {isLoading && <div className="text-center text-gray-500 dark:text-gray-400 flex flex-col items-center gap-4"><Spinner /><span>Editing in progress...</span></div>}
+            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Edited</h3>
+            <div className="w-full aspect-square border rounded-lg flex items-center justify-center p-2" style={{ borderColor: 'var(--color-border)' }}>
+                {isLoading && <div className="text-center flex flex-col items-center gap-4" style={{ color: 'var(--color-text-dim)' }}><Spinner /><span>Editing in progress...</span></div>}
                 {!isLoading && editedImage && (
-                    <img src={editedImage} alt="Edited" className="max-w-full max-h-full object-contain rounded-lg"/>
+                    <img src={editedImage} alt="Edited" className="max-w-full max-h-full object-contain rounded-md"/>
                 )}
-                {!isLoading && !editedImage && <span className="text-gray-500">Your edited image will appear here</span>}
+                {!isLoading && !editedImage && <span style={{ color: 'var(--color-text-dim)' }}>Your edited image will appear here</span>}
             </div>
         </div>
       </div>

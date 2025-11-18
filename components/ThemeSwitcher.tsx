@@ -16,51 +16,45 @@ const ThemeSwitcher: React.FC = () => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const options = [
-    { value: 'light', label: 'Light', icon: <SunIcon className="w-5 h-5" /> },
-    { value: 'dark', label: 'Dark', icon: <MoonIcon className="w-5 h-5" /> },
-    { value: 'system', label: 'System', icon: <SystemIcon className="w-5 h-5" /> },
+    { value: 'light', label: 'Light', icon: <SunIcon className="w-4 h-4" /> },
+    { value: 'dark', label: 'Dark', icon: <MoonIcon className="w-4 h-4" /> },
+    { value: 'system', label: 'System', icon: <SystemIcon className="w-4 h-4" /> },
   ];
 
-  const currentIcon = options.find(opt => opt.value === theme)?.icon;
-  const currentLabel = options.find(opt => opt.value === theme)?.label;
+  const currentOption = options.find(opt => opt.value === theme) || options[2];
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+        className="p-2 border rounded-lg transition-colors"
         aria-label="Toggle theme"
-        title={`Change theme (current: ${currentLabel})`}
+        title={`Change theme (current: ${currentOption.label})`}
+        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-dim)'}}
       >
-        <span className={`inline-block transition-transform duration-300 ease-in-out ${isOpen ? 'rotate-90' : ''}`}>
-          {currentIcon}
-        </span>
+        {currentOption.icon}
       </button>
       <div 
-        className={`absolute top-full right-0 mt-2 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 transition-all duration-200 ease-out origin-top-right
+        className={`absolute top-full right-0 mt-2 w-36 border rounded-lg z-50 transition-all duration-200 ease-out origin-top-right
           ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}
         `}
+        style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
       >
         <ul className="p-1">
           {options.map(option => (
             <li key={option.value}>
               <button
-                onClick={() => {
-                  setTheme(option.value as any);
-                  setIsOpen(false);
+                onClick={() => { setTheme(option.value as any); setIsOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-left rounded-md transition-colors`}
+                style={{
+                  backgroundColor: theme === option.value ? 'var(--color-accent-glow)' : 'transparent',
+                  color: theme === option.value ? 'var(--color-accent)' : 'var(--color-text)',
+                  fontWeight: theme === option.value ? '600' : '400',
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md text-left transition-colors
-                  ${theme === option.value
-                    ? 'bg-teal-500 text-white'
-                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }
-                `}
               >
                 {option.icon}
                 {option.label}

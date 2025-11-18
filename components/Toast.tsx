@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 
 interface ToastAction {
@@ -17,31 +16,21 @@ const Toast: React.FC<ToastProps> = ({ message, action, onClose }) => {
 
   const handleClose = useCallback(() => {
     setVisible(false);
-    const clearTimer = setTimeout(() => {
-      onClose();
-    }, 300); // Wait for fade-out animation
-    return () => clearTimeout(clearTimer);
+    setTimeout(onClose, 300);
   }, [onClose]);
 
   useEffect(() => {
-    // FIX: Replaced `NodeJS.Timeout` with `ReturnType<typeof setTimeout>` for browser compatibility.
     let timer: ReturnType<typeof setTimeout> | null = null;
     if (message) {
       setVisible(true);
-      const duration = action ? 5000 : 3000;
-      timer = setTimeout(handleClose, duration);
+      timer = setTimeout(handleClose, action ? 5000 : 3000);
     } else {
       setVisible(false);
     }
-    
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
+    return () => { if (timer) clearTimeout(timer); };
   }, [message, action, handleClose]);
 
-  if (!message) {
-    return null;
-  }
+  if (!message) return null;
 
   const handleActionClick = () => {
     if (action) {
@@ -52,16 +41,22 @@ const Toast: React.FC<ToastProps> = ({ message, action, onClose }) => {
 
   return (
     <div
-      className={`fixed top-5 right-5 z-50 w-auto max-w-sm rounded-lg shadow-lg text-white p-4 flex items-center justify-between gap-4 transition-all duration-300
-        ${visible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
-        ${action ? 'bg-gray-800 dark:bg-gray-700' : 'bg-green-500'}
+      className={`fixed top-5 right-5 z-50 w-auto max-w-sm p-4 border rounded-lg flex items-center justify-between gap-4 transition-all duration-300
+        ${visible ? 'translate-x-0 opacity-100' : 'translate-x-12 opacity-0'}
       `}
+      style={{
+        backgroundColor: 'var(--color-surface)',
+        borderColor: 'var(--color-border)',
+        color: 'var(--color-text)',
+        boxShadow: 'var(--shadow-lg)'
+      }}
     >
       <span>{message}</span>
       {action && (
         <button
           onClick={handleActionClick}
-          className="font-bold text-teal-300 hover:text-teal-200 underline text-sm whitespace-nowrap"
+          className="font-bold text-sm whitespace-nowrap uppercase transition-opacity hover:opacity-80"
+          style={{ color: 'var(--color-accent)' }}
         >
           {action.label}
         </button>

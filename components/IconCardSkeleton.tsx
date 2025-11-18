@@ -2,7 +2,12 @@ import React from 'react';
 
 const IconCardSkeleton: React.FC = () => {
   return (
-    <div className="bg-gray-200 dark:bg-gray-700/50 rounded-lg aspect-square animate-pulse animate-fade-in-scale" />
+    <div 
+      className="border rounded-lg aspect-square animate-pulse animate-fade-in-scale relative overflow-hidden shimmer-overlay bg-black/10 dark:bg-white/5"
+      style={{
+        borderColor: 'var(--color-border)'
+      }}
+    />
   );
 };
 

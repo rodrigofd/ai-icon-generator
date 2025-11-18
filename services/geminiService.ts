@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { IconStyle } from '../types';
 
 const API_KEY = process.env.API_KEY;
@@ -71,21 +71,37 @@ export const getSafeMaskColor = (userColorHex?: string): string => {
 export const getStyleDescription = (style: IconStyle, color?: string): string => {
   switch (style) {
     case IconStyle.FLAT_SINGLE_COLOR:
-      return `A modern, flat design style icon. The icon must be a single solid shape, using only the color ${color}.`;
+      return `Style: Flat Vector Glyph.
+      - Visuals: Solid shapes, no outlines, no gradients, no shadows.
+      - Aesthetic: Minimalist, symbolic, clean silhouette.
+      - Color: Use strictly ${color} for the icon shape.`;
     case IconStyle.FLAT_COLORED:
-      return `A modern, flat design style icon using a vibrant but simple color palette (2-3 colors max). Do not use gradients.`;
+      return `Style: Flat Vector Illustration.
+      - Visuals: geometric shapes, flat colors.
+      - Aesthetic: Corporate art style, modern, clean.
+      - Palette: Vibrant but limited (2-3 colors). No gradients.`;
     case IconStyle.OUTLINE:
-      return `A modern, minimalist line-art style icon. The icon must be composed of outlines only, using the color ${color}. The stroke width should be consistent and clean. The inside of the shape must be empty.`;
+      return `Style: Monoline Icon.
+      - Visuals: Line art only, consistent stroke width (approx 4px).
+      - Aesthetic: Minimalist, technical, blueprint feel.
+      - Color: Lines must be ${color}. Background inside the shape should be transparent (or match the mask).`;
     case IconStyle.GRADIENT:
-      return `A modern, flat design style icon using smooth, vibrant gradients.`;
+      return `Style: Modern Gradient Icon.
+      - Visuals: Soft rounded shapes with smooth, trendy gradients.
+      - Aesthetic: iOS App Icon style, glassmorphism hints, vibrant.`;
     case IconStyle.ISOMETRIC:
-      return `A modern, clean, isometric style icon.`;
+      return `Style: Isometric 3D Icon.
+      - View: Orthographic isometric view.
+      - Visuals: Sharp geometric edges, precise angles.
+      - Aesthetic: Tech startup illustration style.`;
     case IconStyle.THREE_D:
-      return `A high-quality 3D rendered icon with a clean aesthetic, soft lighting, and subtle shadows.`;
+      return `Style: 3D Rendered Icon.
+      - Visuals: Claymorphism, soft lighting, matte materials.
+      - Aesthetic: High-end 3D design, cute, rounded edges, toy-like.`;
     default:
       return color
-        ? `A standard, modern icon style using the primary color ${color}.`
-        : `A standard, modern icon style.`;
+        ? `Style: Standard Vector Icon. Color: ${color}.`
+        : `Style: Standard Vector Icon.`;
   }
 };
 
@@ -155,24 +171,24 @@ export const generateReferencedIcon = async (
   }
 };
 
+// FIX: Added generateImage function to generate photorealistic images.
 export const generateImage = async (prompt: string): Promise<string> => {
   try {
     const response = await ai.models.generateImages({
-      model: 'imagen-4.0-generate-001',
-      prompt: prompt,
-      config: {
-        numberOfImages: 1,
-        outputMimeType: 'image/png',
-      },
+        model: 'imagen-4.0-generate-001',
+        prompt: prompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: 'image/png', // The component expects png
+          aspectRatio: '1:1',
+        },
     });
 
-    const base64ImageBytes = response.generatedImages?.[0]?.image?.imageBytes;
-
-    if (!base64ImageBytes) {
-      throw new Error("No image was generated. The model may have refused the prompt.");
+    if (response.generatedImages && response.generatedImages.length > 0) {
+      return response.generatedImages[0].image.imageBytes;
     }
     
-    return base64ImageBytes;
+    throw new Error("No image was generated. The model may have refused the prompt.");
 
   } catch (error) {
     console.error("Error generating image:", error);
@@ -180,38 +196,38 @@ export const generateImage = async (prompt: string): Promise<string> => {
   }
 };
 
+// FIX: Added editImage function to edit images based on a prompt.
 export const editImage = async (base64ImageData: string, mimeType: string, prompt: string): Promise<string> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: base64ImageData,
-              mimeType: mimeType,
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    {
+                        inlineData: {
+                            data: base64ImageData,
+                            mimeType: mimeType,
+                        },
+                    },
+                    {
+                        text: prompt,
+                    },
+                ],
             },
-          },
-          {
-            text: prompt,
-          },
-        ],
-      },
-      config: {
-          responseModalities: [Modality.IMAGE],
-      },
-    });
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return part.inlineData.data;
-      }
+        const firstPart = response.candidates?.[0]?.content?.parts?.[0];
+        if (firstPart && firstPart.inlineData) {
+            return firstPart.inlineData.data;
+        }
+
+        throw new Error("No edited image was generated. The model may have refused the prompt.");
+
+    } catch (error) {
+        console.error("Error editing image:", error);
+        throw new Error("Failed to edit image from the API.");
     }
-
-    throw new Error("No edited image was returned from the model.");
-
-  } catch (error) {
-    console.error("Error editing image:", error);
-    throw new Error("Failed to edit image using the API.");
-  }
 };

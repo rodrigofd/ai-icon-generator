@@ -17,121 +17,98 @@ interface IconCardProps {
   onPromptCopy: () => void;
   onEditRequest: (id: string) => void;
   onInspireRequest: (id: string) => void;
-  onLongPress: (id: string) => void;
-  isSelectionMode: boolean;
 }
 
-const IconCard: React.FC<IconCardProps> = ({ id, pngSrc, prompt, isSelected, onDelete, onSelect, onPromptCopy, onEditRequest, onInspireRequest, onLongPress, isSelectionMode }) => {
+const IconCard: React.FC<IconCardProps> = ({ id, pngSrc, prompt, isSelected, onDelete, onSelect, onPromptCopy, onEditRequest, onInspireRequest }) => {
   const iconName = prompt.toLowerCase().replace(/\s+/g, '-').slice(0, 20) || "generated-icon";
-  const longPressTimeout = useRef<number | null>(null);
-
+  
   const handlePromptClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     navigator.clipboard.writeText(prompt);
     onPromptCopy();
   };
 
-  const handleActionClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card selection when clicking an action button
-  };
-  
-  const handleTouchStart = () => {
-    longPressTimeout.current = window.setTimeout(() => {
-      onLongPress(id);
-      longPressTimeout.current = null; // Prevent click from firing
-    }, 500); // 500ms for long press
-  };
-
-  const handleTouchMove = () => {
-    if (longPressTimeout.current) {
-      clearTimeout(longPressTimeout.current);
-      longPressTimeout.current = null;
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (longPressTimeout.current) {
-      clearTimeout(longPressTimeout.current);
-      longPressTimeout.current = null;
-      // It was a short tap, let onClick handle it
-    } else {
-      // It was a long press, so prevent click if it was not a scroll
-      e.preventDefault();
-    }
-  };
-
+  const handleActionClick = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
     <div
       data-icon-card="true"
       onClick={(e) => onSelect(e, id)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onContextMenu={(e) => isSelectionMode && e.preventDefault()}
-      title="Click to select. Ctrl/Cmd+Click to multi-select. Shift+Click for range select."
-      className={`relative group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col items-center justify-center aspect-square transition-all duration-200 hover:shadow-lg hover:shadow-teal-500/10 cursor-pointer
-        ${isSelected ? 'ring-4 ring-teal-400 dark:ring-teal-500 shadow-xl shadow-teal-500/20 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}
-      `}
+      onContextMenu={(e) => { e.preventDefault(); onSelect(e, id); }}
+      title="Click to select. Ctrl/Cmd+Click or Shift+Click to multi-select."
+      className={`relative group border p-3 rounded-lg flex flex-col items-center justify-center aspect-square transition-all duration-200 cursor-pointer overflow-hidden ring-2 ring-offset-2 hover:-translate-y-1`}
+      // FIX: Replaced non-standard `ringColor` and `ringOffsetColor` style properties with CSS custom properties
+      // used by Tailwind CSS. This resolves the TypeScript error for unknown properties.
+      style={{
+        borderColor: isSelected ? 'var(--color-accent)' : 'var(--color-border)',
+        backgroundColor: 'var(--color-surface)',
+        '--tw-ring-color': isSelected ? 'var(--color-accent)' : 'transparent',
+        '--tw-ring-offset-color': 'var(--color-surface)',
+        boxShadow: isSelected ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
+      } as React.CSSProperties}
     >
-      {isSelected && (
-        <div className="absolute top-2 left-2 w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center z-10 pointer-events-none animate-fade-in-scale">
-          <CheckIcon className="w-4 h-4 text-white" />
-        </div>
-      )}
       <img
         src={pngSrc}
         alt={prompt}
         className="w-full h-full object-contain"
       />
-      <div className="absolute top-2 right-2 hidden md:flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onClick={handleActionClick}>
-        <button
-          onClick={() => onEditRequest(id)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-teal-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
-          style={{ transitionDelay: '50ms' }}
-          title="Edit Icon"
-        >
-          <EditIcon className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => onInspireRequest(id)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-teal-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
-          style={{ transitionDelay: '100ms' }}
-          title="Generate Similar"
-        >
-          <InspirationIcon className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => copyPngToClipboard(pngSrc)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-teal-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
-          style={{ transitionDelay: '150ms' }}
-          title="Copy as PNG"
-        >
-          <ClipboardIcon className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => downloadPng(pngSrc, iconName)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-teal-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
-          style={{ transitionDelay: '200ms' }}
-          title="Download PNG"
-        >
-          <DownloadIcon className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => onDelete(id)}
-          className="p-2 bg-gray-900/50 rounded-full text-gray-300 hover:bg-red-600 hover:text-white transition-all duration-200 transform group-hover:translate-x-0 translate-x-4"
-          style={{ transitionDelay: '250ms' }}
-          title="Delete Icon"
-        >
-          <TrashIcon className="w-5 h-5" />
-        </button>
+      {isSelected && (
+          <div 
+            className="absolute top-2 left-2 w-5 h-5 border-2 rounded-md flex items-center justify-center pointer-events-none"
+            style={{ backgroundColor: 'var(--color-accent)', borderColor: 'var(--color-accent-dark)'}}
+          >
+            <CheckIcon className="w-3.5 h-3.5 text-white" />
+          </div>
+      )}
+      <div className="absolute top-2 right-2 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onClick={handleActionClick}>
+        {[
+          { action: () => onEditRequest(id), title: "Edit Icon", icon: <EditIcon className="w-4 h-4" /> },
+          { action: () => onInspireRequest(id), title: "Generate Similar", icon: <InspirationIcon className="w-4 h-4" /> },
+          { action: () => copyPngToClipboard(pngSrc), title: "Copy as PNG", icon: <ClipboardIcon className="w-4 h-4" /> },
+          { action: () => downloadPng(pngSrc, iconName), title: "Download PNG", icon: <DownloadIcon className="w-4 h-4" /> },
+          { action: () => onDelete(id), title: "Delete Icon", icon: <TrashIcon className="w-4 h-4" /> },
+        ].map((btn, index) => {
+           const isDelete = btn.title === "Delete Icon";
+           const buttonClasses = `p-1.5 border rounded-full transition-all duration-200 transform group-hover:scale-100 scale-90 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+              isDelete
+                ? 'hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-500'
+                : 'hover:bg-black/5 dark:hover:bg-white/5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'
+            }`;
+            const buttonStyles = {
+              transitionDelay: `${index * 30}ms`,
+              backgroundColor: 'var(--color-surface)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-dim)',
+              boxShadow: 'var(--shadow-sm)',
+              '--tw-ring-color': isDelete ? 'rgb(239 68 68 / 0.5)' : 'var(--color-accent)',
+              '--tw-ring-offset-color': 'var(--color-surface)',
+            } as React.CSSProperties;
+
+          return (
+            <button
+              key={btn.title}
+              onClick={btn.action}
+              className={buttonClasses}
+              title={btn.title}
+              style={buttonStyles}
+            >
+              {btn.icon}
+            </button>
+          )
+        })}
       </div>
       <div
         onClick={handlePromptClick}
         title="Click to copy prompt"
-        className="absolute bottom-0 left-0 right-0 p-2 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0"
+        className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 flex items-center justify-center"
+        style={{ 
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+        }}
       >
-        <p className="text-sm text-gray-200 text-center line-clamp-2">
+        <p className="text-xs text-center line-clamp-2 text-white font-medium drop-shadow-sm">
           {prompt}
         </p>
       </div>

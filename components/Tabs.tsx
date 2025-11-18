@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface Tab {
@@ -14,20 +13,26 @@ interface TabsProps {
 
 const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, setActiveTab }) => {
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700">
-      <nav className="-mb-px flex space-x-6 justify-center" aria-label="Tabs">
+    <div className="border-b px-4 sm:px-6" style={{ borderColor: 'var(--color-border)'}}>
+      <nav className="-mb-px flex space-x-6" aria-label="Tabs">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`${
-              activeTab === tab.id
-                ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-500'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 focus:outline-none`}
+            className={`relative whitespace-nowrap py-4 px-1 border-b-2 font-semibold text-sm transition-colors duration-200 focus:outline-none`}
+            style={{
+              borderColor: 'transparent',
+              color: activeTab === tab.id ? 'var(--color-text)' : 'var(--color-text-dim)',
+            }}
             aria-current={activeTab === tab.id ? 'page' : undefined}
           >
             {tab.label}
+            {activeTab === tab.id && (
+              <span 
+                className="absolute bottom-[-1px] left-0 right-0 h-[2px]"
+                style={{ background: `linear-gradient(90deg, var(--color-accent), var(--color-accent-dark))`}}
+              />
+            )}
           </button>
         ))}
       </nav>
