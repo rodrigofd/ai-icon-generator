@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { generateIcons, generateReferencedIcon, getStyleDescription, getSafeMaskColor } from '../services/geminiService';
+import { generateIcons, generateReferencedIcon, getStyleDescription as getBaseStyleDescription, getSafeMaskColor, editImage } from '../services/geminiService';
 import { IconStyle, GeneratedIcon } from '../types';
 import { removeGreenScreen, addPadding } from '../utils/imageUtils';
 import { copyPngToClipboard, downloadZip } from '../utils/fileUtils';
@@ -38,6 +38,45 @@ const getContrastColor = (hex: string) => {
     return (r * 0.299 + g * 0.587 + b * 0.114) > 186 ? '#000000' : '#FFFFFF';
 };
 
+// Override the imported getStyleDescription to refine prompts locally in the component for better control
+const getStyleDescription = (style: IconStyle, color?: string): string => {
+  switch (style) {
+    case IconStyle.FLAT_SINGLE_COLOR:
+      return `Style: Flat Vector Glyph.
+      - Visuals: Solid shapes, no outlines, no gradients, no shadows.
+      - Aesthetic: Minimalist, symbolic, clean silhouette.
+      - Color: Use strictly ${color} for the icon shape.`;
+    case IconStyle.FLAT_COLORED:
+      return `Style: Flat Vector Illustration.
+      - Visuals: geometric shapes, flat colors.
+      - Aesthetic: Corporate art style, modern, clean.
+      - Palette: Vibrant but limited (2-3 colors). No gradients.`;
+    case IconStyle.OUTLINE:
+      return `Style: Monoline Icon.
+      - Visuals: Line art only, consistent stroke width (approx 4px).
+      - Aesthetic: Minimalist, technical, blueprint feel.
+      - Color: Lines must be ${color}. Background inside the shape should be transparent (or match the mask).`;
+    case IconStyle.GRADIENT:
+      return `Style: Modern Gradient Icon.
+      - Visuals: Soft rounded shapes with smooth, trendy gradients.
+      - Aesthetic: Modern UI aesthetic, glassmorphism hints, vibrant.`;
+    case IconStyle.ISOMETRIC:
+      return `Style: Isometric 3D View.
+      - Perspective: Orthographic isometric.
+      - Visuals: Clean 3D geometry, soft shading.
+      - Object: Single floating element.`;
+    case IconStyle.THREE_D:
+      return `Style: 3D Clay Render.
+      - Material: Matte plastic or clay.
+      - Lighting: Soft studio lighting.
+      - Aesthetics: Cute, rounded, 3D styling.`;
+    default:
+      return color
+        ? `Style: Standard Vector Icon. Color: ${color}.`
+        : `Style: Standard Vector Icon.`;
+  }
+};
+
 const StyleSelector: React.FC<{ selected: IconStyle, onSelect: (style: IconStyle) => void }> = ({ selected, onSelect }) => {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -70,6 +109,7 @@ const IconGenerator: React.FC = () => {
   const [numVariants, setNumVariants] = useState<number>(2);
   const [isUiIcon, setIsUiIcon] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [processingIds, setProcessingIds] = useState(new Set<string>());
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<GeneratedIcon[]>([]);
   const [toast, setToast] = useState<{ message: string; action?: ToastAction } | null>(null);
@@ -101,8 +141,29 @@ const IconGenerator: React.FC = () => {
   
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   const longPressTimeout = useRef<number | null>(null);
+  
+  // Sample prompt logic
+  const [allPrompts, setAllPrompts] = useState<string[]>([]);
+  const [lastAutoPrompt, setLastAutoPrompt] = useState<string>('A rocket ship launching');
+  const [placeholderPrompt, setPlaceholderPrompt] = useState<string>('A rocket ship launching...');
 
   const isSingleColorStyle = style === IconStyle.FLAT_SINGLE_COLOR || style === IconStyle.OUTLINE;
+
+  // Load randomized prompts
+  useEffect(() => {
+    fetch('./prompts.json')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+            setAllPrompts(data);
+            const random = data[Math.floor(Math.random() * data.length)];
+            setPrompt(random);
+            setPlaceholderPrompt(random);
+            setLastAutoPrompt(random);
+        }
+      })
+      .catch(e => console.error("Failed to load prompts", e));
+  }, []);
 
   useEffect(() => {
     window.localforage.getItem('iconHistory')
@@ -140,49 +201,83 @@ const IconGenerator: React.FC = () => {
   }, [style, referenceIcon]);
 
   const generateFullPrompt = useCallback((promptForIcon: string) => {
-    const styleDescription = getStyleDescription(style, isSingleColorStyle ? color : undefined);
+    const is3D = style === IconStyle.THREE_D || style === IconStyle.ISOMETRIC;
     const maskColor = getSafeMaskColor(isSingleColorStyle ? color : undefined);
+    const styleDescription = getStyleDescription(style, isSingleColorStyle ? color : undefined);
     
-    // Technical constraints
     const paddingInstruction = padding > 0 
       ? "Constraint: Ensure distinct separation from the canvas edges (fit within safe zone)." 
       : "Constraint: Fit effectively within the frame.";
 
-    // UI Icon logic: simpler, bolder
-    const complexityInstruction = isUiIcon 
-      ? "Complexity: LOW. Create a High-Contrast, Simple, Legible icon. Avoid small details, thin lines, or clutter. This must be readable at 24px." 
-      : "Complexity: Medium. Professional icon detail level.";
+    let systemPreamble = "";
+    let backgroundInstruction = "";
+    let negativePrompt = "";
+    let mainSubject = "";
 
-    // The core system instruction for the model
-    const systemPreamble = `Role: Senior Icon Designer.
-Task: Create a professional 512x512 vector-style icon.`;
+    if (is3D) {
+        // 3D STRATEGY: "Object Only"
+        const entityType = style === IconStyle.ISOMETRIC ? "Isometric 3D Object" : "3D Rendered Object";
+        
+        systemPreamble = `Role: Expert 3D Modeler.
+Task: Render a single, isolated ${entityType} based on: "${promptForIcon}".`;
 
-    const backgroundInstruction = `Background: SOLID ${maskColor}. Do NOT use this color in the icon itself. No gradients in background. No shadows on background.`;
+        mainSubject = `Subject: "${promptForIcon}" as a tangible 3D object.
+CRITICAL INSTRUCTION: Generate the object completely ISOLATED in the void. 
+Do NOT render it inside a "container", "card", "bubble", "button", "badge", or "app icon shape".
+Just the raw object floating in space.`;
 
-    const negativePrompt = `Negative Prompt: Text, watermarks, signature, photorealism, noise, dithering, blurry, complex background, scene, landscape.`;
+        backgroundInstruction = `BACKGROUND:
+1. The background must be a SINGLE, FLAT, UNIFORM COLOR: ${maskColor}.
+2. It must be a solid hex color for chroma keying.
+3. NO gradients. NO shadows on the background. NO floor. NO ground plane.
+4. NO "icon background" shape behind the object.`;
+
+        negativePrompt = `Negative Prompt: icon container, icon background, app icon shape, rounded square, squircle, circle background, card, tile, badge, button, ui element, border, frame, vignette, noise, floor, ground, shadow, gradient background.`;
+
+    } else {
+        // 2D STRATEGY: "Icon Designer"
+        const complexityInstruction = isUiIcon 
+        ? "Complexity: LOW. Create a High-Contrast, Simple, Legible icon. Avoid small details. Readable at 24px." 
+        : "Complexity: Medium. Professional icon detail level.";
+
+        systemPreamble = `Role: Senior Icon Designer.
+Task: Create a professional 512x512 vector-style icon.
+IMPORTANT: Generate the ISOLATED OBJECT only. Do not generate an app icon button or container.`;
+
+        mainSubject = `Subject: "${promptForIcon}"
+${complexityInstruction}`;
+
+        backgroundInstruction = `Background: SOLID ${maskColor}. 
+CRITICAL: The background is a chroma-key mask.
+The icon must be a free-floating object.
+Do NOT render a background shape, card, tile, or "app icon" squircle behind the object.`;
+
+        negativePrompt = `Negative Prompt: text, watermark, signature, frame, border, margin, bounding box, card, container, background shape, rounded square, squircle, app icon base, launcher icon, platform, podium, stage, floor, photorealistic, noise, grainy, blurry, landscape.`;
+    }
 
     if (referenceIcon) {
         if (referenceIcon.mode === 'edit') {
             return `${systemPreamble}
 Mode: EDITING.
-Original Icon Description: "${referenceIcon.icon.prompt}"
+Original Description: "${referenceIcon.icon.prompt}"
 User Instruction: "${promptForIcon}"
-Constraint: Apply the user instruction while preserving the original's exact style, perspective, and composition.
+Constraint: Apply the instruction while preserving the original's exact style, perspective, and composition.
 ${styleDescription}
-${backgroundInstruction}`;
+${backgroundInstruction}
+${negativePrompt}`;
         } else { // inspire mode
             return `${systemPreamble}
 Mode: INSPIRATION.
-Task: Generate a NEW icon for: "${promptForIcon}".
+Task: Create a NEW ${is3D ? 'asset' : 'icon'} for: "${promptForIcon}".
 Constraint: Strictly copy the artistic style, lighting, and rendering technique of the provided reference image.
-${backgroundInstruction}`;
+${backgroundInstruction}
+${negativePrompt}`;
         }
     } else {
         // Standard Generation
         return `${systemPreamble}
-Subject: "${promptForIcon}"
+${mainSubject}
 ${styleDescription}
-${complexityInstruction}
 ${paddingInstruction}
 Composition: Centered, single isolated object.
 ${backgroundInstruction}
@@ -214,6 +309,71 @@ ${negativePrompt}`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [history]);
+
+  const handleRemoveBackground = useCallback(async (id: string, silent: boolean = false) => {
+      const icon = history.find(i => i.id === id);
+      if (!icon) return;
+
+      setProcessingIds(prev => new Set(prev).add(id));
+
+      try {
+          // 1. Get raw base64 from current pngSrc (Data URL)
+          const base64Original = icon.pngSrc.split(',')[1];
+
+          // 2. Determine mask color based on icon style and color
+          const isSingleColor = icon.style === IconStyle.FLAT_SINGLE_COLOR || icon.style === IconStyle.OUTLINE;
+          const maskColor = getSafeMaskColor(isSingleColor ? icon.color : undefined);
+
+          // 3. Construct prompt
+          const fixPrompt = `remove any background in the image and replace it with a flat, single-color background of color ${maskColor} filling the entire canvas behind the object.`;
+
+          // 4. Call edit API
+          const editedB64 = await editImage(base64Original, 'image/png', fixPrompt);
+
+          // 5. Remove background (Green/Blue screen)
+          const tolerance = icon.style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25;
+          const processedDataUrl = await removeGreenScreen(editedB64, tolerance);
+
+          // 6. Update History in-situ
+          setHistory(prev => prev.map(item => {
+              if (item.id === id) {
+                  return { ...item, pngSrc: processedDataUrl };
+              }
+              return item;
+          }));
+          
+          if (!silent) {
+            setToast({ message: 'Background removed successfully!' });
+          }
+
+      } catch (error) {
+          console.error(error);
+          if (!silent) {
+            setToast({ message: 'Failed to remove background.' });
+          }
+      } finally {
+          setProcessingIds(prev => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+          });
+      }
+  }, [history]);
+
+  const handleRemoveBackgroundSelected = useCallback(async () => {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+
+      setToast({ message: `Removing background for ${ids.length} icons...` });
+
+      try {
+          await Promise.all(ids.map(id => handleRemoveBackground(id, true)));
+          setToast({ message: 'Batch background removal complete!' });
+      } catch (e) {
+          console.error("Batch processing error", e);
+          setToast({ message: 'Some icons could not be processed.' });
+      }
+  }, [selectedIds, handleRemoveBackground]);
 
   const requestDeletion = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
@@ -269,6 +429,31 @@ ${negativePrompt}`;
     }
   }, [history, selectedIds]);
 
+  const handleBatchModeToggle = (checked: boolean) => {
+      setIsBatchMode(checked);
+      if (allPrompts.length === 0) return;
+
+      let newPrompt = '';
+      if (checked) {
+         const shuffled = [...allPrompts].sort(() => 0.5 - Math.random());
+         newPrompt = shuffled.slice(0, 3).join('\n');
+      } else {
+         newPrompt = allPrompts[Math.floor(Math.random() * allPrompts.length)];
+      }
+      
+      setPlaceholderPrompt(newPrompt);
+
+      // Only replace the main prompt input if it hasn't been touched by the user 
+      // (meaning it still matches the last auto-generated prompt, or is the hardcoded default, or is empty)
+      if (prompt === lastAutoPrompt || prompt === 'A rocket ship launching' || prompt === '') {
+         setPrompt(newPrompt);
+         setLastAutoPrompt(newPrompt);
+      } else {
+         // If user has typed something, just update the lastAutoPrompt so we know the "suggestion" context changed
+         setLastAutoPrompt(newPrompt);
+      }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Global shortcut for Generation: Ctrl+Enter or Cmd+Enter
@@ -296,10 +481,24 @@ ${negativePrompt}`;
         exitSelectionMode();
         return;
       }
+
+      // Global DELETE shortcut for selected items
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const activeTag = document.activeElement?.tagName?.toLowerCase();
+        if (activeTag === 'textarea' || activeTag === 'input') {
+          return;
+        }
+        
+        if (selectedIds.size > 0) {
+            e.preventDefault();
+            handleDeleteSelected();
+        }
+        return;
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoading, handleToggleSelectAll, exitSelectionMode]);
+  }, [isLoading, handleToggleSelectAll, exitSelectionMode, selectedIds, handleDeleteSelected]);
 
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -513,7 +712,19 @@ ${negativePrompt}`;
       <ConfirmationDialog isOpen={!!confirmingDelete} title="Confirm Deletion" message={`Are you sure you want to permanently delete ${confirmingDelete?.count} icon(s)?`} onConfirm={handleConfirmDelete} onCancel={() => setConfirmingDelete(null)} />
       {toast && <Toast message={toast.message} action={toast.action} onClose={() => setToast(null)} />}
       {selectionBox && <div className="fixed border-2 rounded-lg pointer-events-none z-50" style={{ left: selectionBox.x, top: selectionBox.y, width: selectionBox.width, height: selectionBox.height, borderColor: 'var(--color-accent)', background: 'var(--color-accent-glow)' }} />}
-      <SelectionToolbar selectedCount={selectedIds.size} totalCount={history.length} onDelete={handleDeleteSelected} onDownload={handleDownloadSelected} onToggleSelectAll={handleToggleSelectAll} onEdit={singleSelectedIcon ? () => handleSetReference(singleSelectedIcon.id, 'edit') : undefined} onInspire={singleSelectedIcon ? () => handleSetReference(singleSelectedIcon.id, 'inspire') : undefined} onCopy={singleSelectedIcon ? () => copyPngToClipboard(singleSelectedIcon.pngSrc).then(() => setToast({ message: 'Icon copied!' })) : undefined} isSelectionMode={isSelectionMode} onExitSelectionMode={exitSelectionMode} />
+      <SelectionToolbar 
+        selectedCount={selectedIds.size} 
+        totalCount={history.length} 
+        onDelete={handleDeleteSelected} 
+        onDownload={handleDownloadSelected} 
+        onToggleSelectAll={handleToggleSelectAll} 
+        onEdit={singleSelectedIcon ? () => handleSetReference(singleSelectedIcon.id, 'edit') : undefined} 
+        onInspire={singleSelectedIcon ? () => handleSetReference(singleSelectedIcon.id, 'inspire') : undefined} 
+        onCopy={singleSelectedIcon ? () => copyPngToClipboard(singleSelectedIcon.pngSrc).then(() => setToast({ message: 'Icon copied!' })) : undefined} 
+        onRemoveBackground={selectedIds.size > 0 ? handleRemoveBackgroundSelected : undefined}
+        isSelectionMode={isSelectionMode} 
+        onExitSelectionMode={exitSelectionMode} 
+      />
       
       <form ref={formRef} onSubmit={handleSubmit}>
         {referenceIcon && (
@@ -544,12 +755,12 @@ ${negativePrompt}`;
                     </label>
                     <div className="flex items-center space-x-2">
                         <label htmlFor="batch-mode-toggle" className="text-sm" style={{ color: 'var(--color-text-dim)' }}>Batch Mode</label>
-                        <Switch id="batch-mode-toggle" checked={isBatchMode} onChange={setIsBatchMode} />
+                        <Switch id="batch-mode-toggle" checked={isBatchMode} onChange={handleBatchModeToggle} />
                     </div>
                 </div>
                 {isBatchMode && <p className="text-xs mt-1" style={{color: 'var(--color-text-dim)'}}>Enter multiple prompts on separate lines to generate icons in bulk.</p>}
             </div>
-            <textarea id="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={ isBatchMode ? 'a smiling coffee cup\na paper airplane\na vintage camera' : 'a smiling coffee cup...' }
+            <textarea id="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={placeholderPrompt}
               className="w-full h-28 sm:h-32 bg-transparent border rounded-lg p-3 focus:outline-none focus:ring-2 focus:shadow-[var(--shadow-inner-sm)]"
               // FIX: Replaced invalid `ringColor` property with the correct CSS custom property `--tw-ring-color`
               // to align with Tailwind's ring utilities and resolve the TypeScript error.
@@ -647,7 +858,17 @@ ${negativePrompt}`;
                       onTouchMove={handleTouchMove}
                       onTouchEnd={(e) => handleTouchEnd(e, icon.id)}
                     >
-                      <IconCard {...icon} isSelected={selectedIds.has(icon.id)} onSelect={handleIconClick} onDelete={handleDelete} onPromptCopy={() => setToast({ message: 'Prompt copied!'})} onEditRequest={() => handleSetReference(icon.id, 'edit')} onInspireRequest={() => handleSetReference(icon.id, 'inspire')} />
+                      <IconCard 
+                        {...icon} 
+                        isSelected={selectedIds.has(icon.id)} 
+                        isProcessing={processingIds.has(icon.id)}
+                        onSelect={handleIconClick} 
+                        onDelete={handleDelete} 
+                        onPromptCopy={() => setToast({ message: 'Prompt copied!'})} 
+                        onEditRequest={() => handleSetReference(icon.id, 'edit')} 
+                        onInspireRequest={() => handleSetReference(icon.id, 'inspire')} 
+                        onRemoveBackground={handleRemoveBackground}
+                      />
                     </div>
                 );
               })}

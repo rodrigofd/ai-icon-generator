@@ -3,8 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="./assets/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>AI Icon Generator</title>
+    
+    <!-- PWA & Mobile Meta Tags -->
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#18181b" media="(prefers-color-scheme: dark)" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AI Icons" />
+    
+    <!-- Icons & Splash -->
+    <link rel="apple-touch-icon" href="./assets/favicon.png" />
+    <link rel="apple-touch-startup-image" href="./assets/splash.png" />
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -206,18 +219,32 @@
 </head>
   <body class="transition-colors duration-300">
     <div id="splash">
-      <img src="./assets/splash.png">
+      <img src="./assets/splash.png" alt="Splash Screen">
     </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
+      // Splash screen logic
       window.addEventListener("load", () => {
         setTimeout(() => {
           const splash = document.getElementById("splash");
-          splash.style.opacity = "0";
-          setTimeout(() => splash.remove(), 500);
+          if (splash) {
+            splash.style.opacity = "0";
+            setTimeout(() => splash.remove(), 500);
+          }
         }, 350);
       });
+
+      // Service Worker Registration with error handling
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker registered'))
+            .catch(err => {
+              console.warn('Service Worker registration skipped (likely due to environment restrictions):', err.message);
+            });
+        });
+      }
     </script>
   </body>
 </html>

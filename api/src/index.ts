@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import { GoogleGenAI, Modality } from "@google/genai";
 import sharp from 'sharp';
 import { IconStyle } from './types';
@@ -16,7 +16,7 @@ if (!API_KEY) {
 }
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 const app = express();
-app.use(express.json({ limit: '10mb' })); // Support base64 image data in requests
+app.use(express.json({ limit: '10mb' }) as any); // Support base64 image data in requests
 
 // --- Color & Style Logic (Replicated from Frontend) ---
 
@@ -44,41 +44,94 @@ const getSafeMaskColor = (userColorHex?: string): string => {
 const getStyleDescription = (style: IconStyle, color?: string): string => {
   switch (style) {
     case IconStyle.FLAT_SINGLE_COLOR:
-      return `A modern, flat design style icon. The icon must be a single solid shape, using only the color ${color}.`;
+      return `Style: Flat Vector Glyph.
+      - Visuals: Solid shapes, no outlines, no gradients, no shadows.
+      - Aesthetic: Minimalist, symbolic, clean silhouette.
+      - Color: Use strictly ${color} for the icon shape.`;
     case IconStyle.FLAT_COLORED:
-      return `A modern, flat design style icon using a vibrant but simple color palette (2-3 colors max). Do not use gradients.`;
+      return `Style: Flat Vector Illustration.
+      - Visuals: geometric shapes, flat colors.
+      - Aesthetic: Corporate art style, modern, clean.
+      - Palette: Vibrant but limited (2-3 colors). No gradients.`;
     case IconStyle.OUTLINE:
-      return `A modern, minimalist line-art style icon. The icon must be composed of outlines only, using the color ${color}. The stroke width should be consistent and clean. The inside of the shape must be empty.`;
+      return `Style: Monoline Icon.
+      - Visuals: Line art only, consistent stroke width (approx 4px).
+      - Aesthetic: Minimalist, technical, blueprint feel.
+      - Color: Lines must be ${color}. Background inside the shape should be transparent (or match the mask).`;
     case IconStyle.GRADIENT:
-      return `A modern, flat design style icon using smooth, vibrant gradients.`;
+      return `Style: Modern Gradient Icon.
+      - Visuals: Soft rounded shapes with smooth, trendy gradients.
+      - Aesthetic: Modern UI aesthetic, glassmorphism hints, vibrant.`;
     case IconStyle.ISOMETRIC:
-      return `A modern, clean, isometric style icon.`;
+      return `Style: Isometric 3D View.
+      - Perspective: Orthographic isometric.
+      - Visuals: Clean 3D geometry, soft shading.
+      - Object: Single floating element.`;
     case IconStyle.THREE_D:
-      return `A high-quality 3D rendered icon with a clean aesthetic, soft lighting, and subtle shadows.`;
+      return `Style: 3D Clay Render.
+      - Material: Matte plastic or clay.
+      - Lighting: Soft studio lighting.
+      - Aesthetics: Cute, rounded, 3D styling.`;
     default:
       return color
-        ? `A standard, modern icon style using the primary color ${color}.`
-        : `A standard, modern icon style.`;
+        ? `Style: Standard Vector Icon. Color: ${color}.`
+        : `Style: Standard Vector Icon.`;
   }
 };
 
-const generateFullPrompt = (prompt: string, style: IconStyle, color: string, isUiIcon: boolean, padding: number): string => {
-    const isSingleColorStyle = style === IconStyle.FLAT_SINGLE_COLOR || style === IconStyle.OUTLINE;
+const generateFullPrompt = (promptForIcon: string, style: IconStyle, color: string, isUiIcon: boolean, padding: number): string => {
+    const is3D = style === IconStyle.THREE_D || style === IconStyle.ISOMETRIC;
+    const maskColor = getSafeMaskColor((style === IconStyle.FLAT_SINGLE_COLOR || style === IconStyle.OUTLINE) ? color : undefined);
+    const styleDescription = getStyleDescription(style, (style === IconStyle.FLAT_SINGLE_COLOR || style === IconStyle.OUTLINE) ? color : undefined);
+    
+    const paddingInstruction = padding > 0 ? "Constraint: Ensure distinct separation from the canvas edges (fit within safe zone)." : "Constraint: Fit effectively within the frame.";
 
-    const styleDescription = getStyleDescription(style, isSingleColorStyle ? color : undefined);
-    const purposeDescription = isUiIcon
-      ? "The icon must be simple, clear, and instantly recognizable for a user interface."
-      : "This is a general-purpose icon.";
-    const maskColor = getSafeMaskColor(isSingleColorStyle ? color : undefined);
-    const paddingInstruction = padding > 0 ? "The icon artwork must be drawn to the absolute edges of the 512x512 frame, with no internal padding or margin. It should touch all four sides of the canvas." : "";
+    if (is3D) {
+        // 3D STRATEGY: "Object Only"
+        const entityType = style === IconStyle.ISOMETRIC ? "Isometric 3D Object" : "3D Rendered Object";
+        
+        return `Role: Expert 3D Modeler.
+Task: Render a single, isolated ${entityType} based on: "${promptForIcon}".
 
-    return `Generate a single, high-resolution 512x512 icon of a "${prompt}".
+Subject: "${promptForIcon}" as a tangible 3D object.
+CRITICAL INSTRUCTION: Generate the object completely ISOLATED in the void. 
+Do NOT render it inside a "container", "card", "bubble", "button", "badge", or "app icon shape".
+Just the raw object floating in space.
+${styleDescription}
+${paddingInstruction}
+Composition: Centered, single isolated object.
 
-**Style:** ${styleDescription}
-**Purpose:** ${purposeDescription}
-**Composition:** The icon must be a clean, visually distinct object, centered in the frame. ${paddingInstruction}
-**Background:** The background must be a solid, plain, non-transparent color (${maskColor}). This is critical for post-processing. The icon artwork itself must not contain this specific shade of color.
-**Negative Constraints:** Absolutely no text, letters, numbers, watermarks, or signatures.`;
+BACKGROUND:
+1. The background must be a SINGLE, FLAT, UNIFORM COLOR: ${maskColor}.
+2. It must be a solid hex color for chroma keying.
+3. NO gradients. NO shadows on the background. NO floor. NO ground plane.
+4. NO "icon background" shape behind the object.
+
+Negative Prompt: icon container, icon background, app icon shape, rounded square, squircle, circle background, card, tile, badge, button, ui element, border, frame, vignette, noise, floor, ground, shadow, gradient background.`;
+
+    } else {
+        // 2D STRATEGY: "Icon Designer"
+        const complexityInstruction = isUiIcon 
+            ? "Complexity: LOW. Create a High-Contrast, Simple, Legible icon. Avoid small details. Readable at 24px." 
+            : "Complexity: Medium. Professional icon detail level.";
+
+        return `Role: Senior Icon Designer.
+Task: Create a professional 512x512 vector-style icon.
+IMPORTANT: Generate the ISOLATED OBJECT only. Do not generate an app icon button or container.
+
+Subject: "${promptForIcon}"
+${styleDescription}
+${complexityInstruction}
+${paddingInstruction}
+Composition: Centered, single isolated object.
+
+Background: SOLID ${maskColor}. 
+CRITICAL: The background is a chroma-key mask.
+The icon must be a free-floating object.
+Do NOT render a background shape, card, tile, or "app icon" squircle behind the object.
+
+Negative Prompt: text, watermark, signature, frame, border, margin, bounding box, card, container, background shape, rounded square, squircle, app icon base, launcher icon, platform, podium, stage, floor, photorealistic, noise, grainy, blurry, landscape.`;
+    }
 }
 
 // --- Server-Side Image Processing using Sharp ---
@@ -171,7 +224,7 @@ const callGenerationApi = async (prompt: string, numVariants: number): Promise<s
 
 // --- Express API Endpoint ---
 
-app.post('/generate', async (req: Request, res: Response) => {
+app.post('/generate', async (req: any, res: any) => {
     try {
         const {
             prompt,

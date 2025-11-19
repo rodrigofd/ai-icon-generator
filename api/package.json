@@ -1,6 +1,6 @@
 {
   "name": "icon-generator-api",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "description": "API for generating AI icons",
   "main": "dist/index.js",
   "scripts": {

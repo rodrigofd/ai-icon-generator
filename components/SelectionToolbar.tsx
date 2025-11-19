@@ -5,6 +5,7 @@ import EditIcon from './icons/EditIcon';
 import InspirationIcon from './icons/InspirationIcon';
 import ClipboardIcon from './icons/ClipboardIcon';
 import XCircleIcon from './icons/XCircleIcon';
+import EraserIcon from './icons/EraserIcon';
 
 interface SelectionToolbarProps {
   selectedCount: number;
@@ -15,6 +16,7 @@ interface SelectionToolbarProps {
   onEdit?: () => void;
   onInspire?: () => void;
   onCopy?: () => void;
+  onRemoveBackground?: () => void;
   isSelectionMode: boolean;
   onExitSelectionMode: () => void;
 }
@@ -23,7 +25,7 @@ const ToolbarButton: React.FC<{ onClick?: () => void, title: string, children: R
   <button 
     onClick={onClick} 
     disabled={!onClick}
-    className={`p-2 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed ${className}`} 
+    className={`p-2 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 ${className}`} 
     style={{ color: 'var(--color-text)'}}
     title={title}>
     {children}
@@ -39,6 +41,7 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   onEdit,
   onInspire,
   onCopy,
+  onRemoveBackground,
   isSelectionMode,
   onExitSelectionMode,
 }) => {
@@ -75,15 +78,21 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
         <button
             onClick={onToggleSelectAll}
             title={allSelected ? 'Deselect all (Ctrl+D)' : 'Select all (Ctrl+A)'}
-            className="text-sm font-semibold px-2 sm:px-3 py-1.5 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            className="text-sm font-semibold px-2 sm:px-3 py-1.5 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 whitespace-nowrap"
             style={{ color: 'var(--color-accent)' }}
         >
             {allSelected ? 'Deselect' : 'Select All'}
         </button>
         <div className="h-6 w-px" style={{ backgroundColor: 'var(--color-border)' }} />
-        <div className="flex items-center gap-0 sm:gap-1">
+        
+        {/* Actions Container with Horizontal Scroll for small screens */}
+        <div 
+          className="flex items-center gap-0 sm:gap-1 overflow-x-auto" 
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
             <ToolbarButton onClick={onEdit} title="Edit (only 1 selected)"><EditIcon className="w-5 h-5" /></ToolbarButton>
             <ToolbarButton onClick={onInspire} title="Generate Similar (only 1 selected)"><InspirationIcon className="w-5 h-5" /></ToolbarButton>
+            <ToolbarButton onClick={onRemoveBackground} title="Remove Background from Selected"><EraserIcon className="w-5 h-5" /></ToolbarButton>
             <ToolbarButton onClick={onCopy} title="Copy Image (only 1 selected)"><ClipboardIcon className="w-5 h-5" /></ToolbarButton>
             <ToolbarButton onClick={onDownload} title="Download Selected"><DownloadIcon className="w-5 h-5" /></ToolbarButton>
             <ToolbarButton onClick={onDelete} title="Delete Selected" className="hover:!bg-red-500/10 text-red-500"><TrashIcon className="w-5 h-5" /></ToolbarButton>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../hooks/context/ThemeContext';
 import SunIcon from './icons/SunIcon';
 import MoonIcon from './icons/MoonIcon';
 import SystemIcon from './icons/SystemIcon';
