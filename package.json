@@ -1,6 +1,6 @@
 {
   "name": "ai-icon-generator",
-  "version": "1.8.15",
+  "version": "1.8.17",
   "private": true,
   "description": "An AI-powered creative suite to generate vector icons. Use text prompts to create unique icons for your projects.",
   "scripts": {

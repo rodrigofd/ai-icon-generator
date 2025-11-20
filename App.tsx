@@ -14,23 +14,30 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen font-sans p-4 sm:p-6 lg:p-8" style={{ color: 'var(--color-text)' }}>
-      <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-start mb-8">
-          <div className="flex-1">
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: 'var(--color-text)' }}>
-              AI Icon Generator
+    <div className="min-h-screen font-sans antialiased bg-[var(--color-bg)] text-[var(--color-text)] transition-colors duration-300">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+        <header className="flex justify-between items-center mb-10 animate-slide-up">
+          <div className="flex flex-col">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight flex items-center gap-3">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-[var(--color-text)] to-[var(--color-text-dim)]">
+                AI Icon Generator
+              </span>
+              {version && (
+                <span className="px-2 py-0.5 rounded-full bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-[10px] font-medium text-[var(--color-text-dim)] tracking-wide shadow-sm">
+                  v{version}
+                </span>
+              )}
             </h1>
-            <p className="mt-2 text-base" style={{ color: 'var(--color-text-dim)' }}>
-              Your AI-powered design companion. (v{version || '1.8.0'})
+            <p className="mt-1 text-sm sm:text-base text-[var(--color-text-dim)] max-w-md">
+              Professional vector assets generated in seconds.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
              <a
               href="https://github.com/rodrigofd/ai-icon-generator"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 rounded-lg transition-colors"
+              className="p-2.5 rounded-full transition-all hover:bg-[var(--color-surface-secondary)] border border-transparent hover:border-[var(--color-border)]"
               style={{ color: 'var(--color-text-dim)'}}
               title="View on GitHub"
             >
@@ -40,21 +47,14 @@ const App: React.FC = () => {
           </div>
         </header>
         
-        <main className="gradient-border rounded-xl p-4 sm:p-6" style={{ backgroundColor: 'var(--color-surface)', boxShadow: 'var(--shadow-sm)' }}>
+        <main className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
             <IconGenerator />
         </main>
         
-        <footer className="mt-8 text-center text-sm" style={{ color: 'var(--color-text-dim)' }}>
-           With ❤️ by{' '}
-            <a
-              href="https://github.com/rodrigofd"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold hover:underline"
-              style={{ color: 'var(--color-accent)' }}
-            >
-              @rodrigofd
-            </a>
+        <footer className="mt-16 text-center text-xs sm:text-sm text-[var(--color-text-dim)] animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <p>
+              Crafted with care by <a href="https://github.com/rodrigofd" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-[var(--color-accent)] transition-colors">@rodrigofd</a>
+            </p>
         </footer>
       </div>
     </div>

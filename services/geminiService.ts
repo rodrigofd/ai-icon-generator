@@ -123,7 +123,7 @@ const callGenerationApi = async (prompt: string, numVariants: number, referenceI
 
   const generationPromises = Array(numVariants).fill(0).map(() =>
     ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-3-pro-image-preview',
       contents: { parts },
       config: {
         responseModalities: [Modality.IMAGE],

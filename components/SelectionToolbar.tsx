@@ -21,14 +21,14 @@ interface SelectionToolbarProps {
   onExitSelectionMode: () => void;
 }
 
-const ToolbarButton: React.FC<{ onClick?: () => void, title: string, children: React.ReactNode, className?: string }> = ({ onClick, title, children, className }) => (
+const ToolbarButton: React.FC<{ onClick?: () => void, title: string, children: React.ReactNode, className?: string, label?: string }> = ({ onClick, title, children, className, label }) => (
   <button 
     onClick={onClick} 
     disabled={!onClick}
-    className={`p-2 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 ${className}`} 
-    style={{ color: 'var(--color-text)'}}
+    className={`group relative p-2 rounded-full transition-all text-[var(--color-text)] hover:bg-[var(--color-text)] hover:text-[var(--color-bg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[var(--color-text)] flex-shrink-0 flex flex-col items-center gap-1 ${className || ''}`} 
     title={title}>
     {children}
+    {label && <span className="sr-only md:not-sr-only md:absolute md:-top-8 md:bg-black md:text-white md:text-[10px] md:px-2 md:py-0.5 md:rounded md:opacity-0 md:group-hover:opacity-100 md:transition-opacity md:whitespace-nowrap pointer-events-none">{label}</span>}
   </button>
 );
 
@@ -54,49 +54,45 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   return (
     <div
       data-selection-toolbar="true"
-      className="fixed z-50 border flex items-center gap-1 sm:gap-2 animate-fade-in-scale
-                 w-[calc(100%-2rem)] bottom-4 left-4 right-4 p-1.5 rounded-xl justify-between
-                 sm:w-auto sm:max-w-[calc(100%-4rem)] sm:left-1/2 sm:-translate-x-1/2 sm:p-2 sm:justify-start"
-      style={{ 
-        backgroundColor: 'var(--color-surface-blur)',
-        borderColor: 'var(--color-border)',
-        boxShadow: 'var(--shadow-lg)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-      }}
+      className="fixed z-50 bottom-6 left-1/2 transform -translate-x-1/2 animate-slide-up"
     >
+      <div className="flex items-center gap-2 pl-4 pr-2 py-2 rounded-full border shadow-2xl backdrop-blur-xl"
+           style={{ 
+             backgroundColor: 'var(--color-surface-blur)', 
+             borderColor: 'var(--color-border)',
+             maxWidth: '90vw'
+           }}>
+        
         {isSelectionMode && (
-          <>
-            <ToolbarButton onClick={onExitSelectionMode} title="Exit Selection Mode (Esc)" className="sm:hidden"><XCircleIcon className="w-5 h-5" /></ToolbarButton>
-            <div className="h-6 w-px sm:hidden" style={{ backgroundColor: 'var(--color-border)' }} />
-          </>
+          <button onClick={onExitSelectionMode} className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 md:hidden text-[var(--color-text)]"><XCircleIcon className="w-5 h-5" /></button>
         )}
-        <span className="text-sm font-semibold pl-2 pr-1 whitespace-nowrap" style={{ color: 'var(--color-text)' }}>
-            {selectedCount} selected
-        </span>
-        <div className="h-6 w-px" style={{ backgroundColor: 'var(--color-border)' }} />
+
+        <div className="flex flex-col md:flex-row items-baseline md:items-center gap-0.5 md:gap-2 mr-2">
+            <span className="text-sm font-bold whitespace-nowrap" style={{ color: 'var(--color-text)' }}>{selectedCount}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-dim)] hidden md:inline">Selected</span>
+        </div>
+        
+        <div className="h-6 w-px mx-1 bg-[var(--color-border)]" />
+        
+        <div className="flex items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+             <ToolbarButton onClick={onEdit} title="Edit" label="Edit"><EditIcon className="w-5 h-5" /></ToolbarButton>
+             <ToolbarButton onClick={onInspire} title="Inspire" label="Variant"><InspirationIcon className="w-5 h-5" /></ToolbarButton>
+             <ToolbarButton onClick={onRemoveBackground} title="Remove Background" label="Clean"><EraserIcon className="w-5 h-5" /></ToolbarButton>
+             <div className="h-4 w-px mx-1 bg-[var(--color-border)]" />
+             <ToolbarButton onClick={onCopy} title="Copy" label="Copy"><ClipboardIcon className="w-5 h-5" /></ToolbarButton>
+             <ToolbarButton onClick={onDownload} title="Download" label="Download"><DownloadIcon className="w-5 h-5" /></ToolbarButton>
+             <ToolbarButton onClick={onDelete} title="Delete" className="hover:!bg-red-500 hover:!text-white !text-red-500" label="Delete"><TrashIcon className="w-5 h-5" /></ToolbarButton>
+        </div>
+
+        <div className="h-6 w-px mx-1 bg-[var(--color-border)]" />
+
         <button
             onClick={onToggleSelectAll}
-            title={allSelected ? 'Deselect all (Ctrl+D)' : 'Select all (Ctrl+A)'}
-            className="text-sm font-semibold px-2 sm:px-3 py-1.5 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 whitespace-nowrap"
-            style={{ color: 'var(--color-accent)' }}
+            className="text-xs font-bold px-3 py-1.5 rounded-full transition-colors hover:bg-[var(--color-accent)] hover:text-white text-[var(--color-accent)]"
         >
-            {allSelected ? 'Deselect' : 'Select All'}
+            {allSelected ? 'None' : 'All'}
         </button>
-        <div className="h-6 w-px" style={{ backgroundColor: 'var(--color-border)' }} />
-        
-        {/* Actions Container with Horizontal Scroll for small screens */}
-        <div 
-          className="flex items-center gap-0 sm:gap-1 overflow-x-auto" 
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-            <ToolbarButton onClick={onEdit} title="Edit (only 1 selected)"><EditIcon className="w-5 h-5" /></ToolbarButton>
-            <ToolbarButton onClick={onInspire} title="Generate Similar (only 1 selected)"><InspirationIcon className="w-5 h-5" /></ToolbarButton>
-            <ToolbarButton onClick={onRemoveBackground} title="Remove Background from Selected"><EraserIcon className="w-5 h-5" /></ToolbarButton>
-            <ToolbarButton onClick={onCopy} title="Copy Image (only 1 selected)"><ClipboardIcon className="w-5 h-5" /></ToolbarButton>
-            <ToolbarButton onClick={onDownload} title="Download Selected"><DownloadIcon className="w-5 h-5" /></ToolbarButton>
-            <ToolbarButton onClick={onDelete} title="Delete Selected" className="hover:!bg-red-500/10 text-red-500"><TrashIcon className="w-5 h-5" /></ToolbarButton>
-        </div>
+      </div>
     </div>
   );
 };

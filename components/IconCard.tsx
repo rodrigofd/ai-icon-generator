@@ -1,5 +1,5 @@
+
 import React, { useRef } from 'react';
-import { downloadPng, copyPngToClipboard } from '../utils/fileUtils';
 import ClipboardIcon from './icons/ClipboardIcon';
 import DownloadIcon from './icons/DownloadIcon';
 import TrashIcon from './icons/TrashIcon';
@@ -18,6 +18,8 @@ interface IconCardProps {
   onDelete: (id: string) => void;
   onSelect: (e: React.MouseEvent, id: string) => void;
   onPromptCopy: () => void;
+  onCopyImage: (id: string) => void; // New prop
+  onDownload: (id: string, prompt: string) => void; // New prop for consistent handling
   onEditRequest: (id: string) => void;
   onInspireRequest: (id: string) => void;
   onRemoveBackground: (id: string) => void;
@@ -32,112 +34,102 @@ const IconCard: React.FC<IconCardProps> = ({
   onDelete, 
   onSelect, 
   onPromptCopy, 
+  onCopyImage,
+  onDownload,
   onEditRequest, 
   onInspireRequest,
   onRemoveBackground
 }) => {
-  const iconName = prompt.toLowerCase().replace(/\s+/g, '-').slice(0, 20) || "generated-icon";
   
   const handlePromptClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     navigator.clipboard.writeText(prompt);
     onPromptCopy();
   };
 
-  const handleActionClick = (e: React.MouseEvent) => e.stopPropagation();
+  // Wrapper to stop propagation for all action buttons
+  const stopProp = (fn: (e: React.MouseEvent) => void) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn(e);
+  };
 
   return (
     <div
       data-icon-card="true"
+      data-id={id}
       onClick={(e) => !isProcessing && onSelect(e, id)}
       onContextMenu={(e) => { e.preventDefault(); !isProcessing && onSelect(e, id); }}
-      title={isProcessing ? "Processing..." : "Click to select. Ctrl/Cmd+Click or Shift+Click to multi-select."}
-      className={`relative group border p-3 rounded-lg flex flex-col items-center justify-center aspect-square transition-all duration-200 cursor-pointer overflow-hidden ring-2 ring-offset-2 hover:-translate-y-1 ${isProcessing ? 'pointer-events-none' : ''}`}
+      className={`group relative aspect-square rounded-2xl cursor-pointer overflow-hidden transition-all duration-200
+        ${isProcessing ? 'pointer-events-none' : ''} 
+        ${isSelected 
+          ? 'ring-4 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-bg)] shadow-md scale-[0.98]' 
+          : 'hover:shadow-soft-lg hover:scale-[1.01] border border-[var(--color-border)]'
+        }
+      `}
       style={{
-        borderColor: isSelected ? 'var(--color-accent)' : 'var(--color-border)',
         backgroundColor: 'var(--color-surface)',
-        '--tw-ring-color': isSelected ? 'var(--color-accent)' : 'transparent',
-        '--tw-ring-offset-color': 'var(--color-surface)',
-        boxShadow: isSelected ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
-      } as React.CSSProperties}
+        boxShadow: isSelected ? 'var(--shadow-md)' : undefined
+      }}
     >
-      <img
-        src={pngSrc}
-        alt={prompt}
-        className={`w-full h-full object-contain transition-opacity duration-300 ${isProcessing ? 'opacity-50 blur-sm' : ''}`}
-      />
+      <div className="absolute inset-0 p-4 flex items-center justify-center">
+        <img
+            src={pngSrc}
+            alt={prompt}
+            draggable={false}
+            className={`w-full h-full object-contain transition-all duration-500 select-none ${isProcessing ? 'opacity-50 blur-sm scale-95' : 'group-hover:scale-105'}`}
+        />
+      </div>
       
       {isProcessing && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-sm">
           <Spinner />
         </div>
       )}
 
       {isSelected && !isProcessing && (
-          <div 
-            className="absolute top-2 left-2 w-5 h-5 border-2 rounded-md flex items-center justify-center pointer-events-none"
-            style={{ backgroundColor: 'var(--color-accent)', borderColor: 'var(--color-accent-dark)'}}
-          >
-            <CheckIcon className="w-3.5 h-3.5 text-white" />
+          <div className="absolute top-3 left-3 w-6 h-6 bg-[var(--color-accent)] rounded-full flex items-center justify-center shadow-sm z-10 animate-scale-in">
+            <CheckIcon className="w-4 h-4 text-white" strokeWidth={3} />
           </div>
       )}
       
+      {/* Hover Overlay */}
       {!isProcessing && (
-        <div className="absolute top-2 right-2 grid grid-cols-2 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" onClick={handleActionClick}>
-          {[
-            { action: () => onEditRequest(id), title: "Edit Icon", icon: <EditIcon className="w-4 h-4" /> },
-            { action: () => onInspireRequest(id), title: "Generate Similar", icon: <InspirationIcon className="w-4 h-4" /> },
-            { action: () => onRemoveBackground(id), title: "Remove Background (Fix Artifacts)", icon: <EraserIcon className="w-4 h-4" /> },
-            { action: () => copyPngToClipboard(pngSrc), title: "Copy as PNG", icon: <ClipboardIcon className="w-4 h-4" /> },
-            { action: () => downloadPng(pngSrc, iconName), title: "Download PNG", icon: <DownloadIcon className="w-4 h-4" /> },
-            { action: () => onDelete(id), title: "Delete Icon", icon: <TrashIcon className="w-4 h-4" /> },
-          ].map((btn, index) => {
-             const isDelete = btn.title === "Delete Icon";
-             const buttonClasses = `p-1.5 border rounded-full transition-all duration-200 transform group-hover:scale-100 scale-90 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                isDelete
-                  ? 'hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-500'
-                  : 'hover:bg-black/5 dark:hover:bg-white/5 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'
-              }`;
-              const buttonStyles = {
-                transitionDelay: `${index * 30}ms`,
-                backgroundColor: 'var(--color-surface)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-dim)',
-                boxShadow: 'var(--shadow-sm)',
-                '--tw-ring-color': isDelete ? 'rgb(239 68 68 / 0.5)' : 'var(--color-accent)',
-                '--tw-ring-offset-color': 'var(--color-surface)',
-              } as React.CSSProperties;
+        <div className={`absolute inset-0 transition-opacity duration-200 flex flex-col justify-between z-20 bg-gradient-to-b from-black/10 via-transparent to-black/60 dark:to-black/80 
+          ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
+        `}>
+          
+          {/* Top Actions */}
+          <div className="p-2 flex justify-end gap-1 pointer-events-auto transform -translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+             {/* Group primary edit actions - only show on hover/selected */}
+             <div className="flex bg-[var(--color-surface)]/90 backdrop-blur-md rounded-lg p-1 border border-[var(--color-border)] shadow-sm" onClick={(e) => e.stopPropagation()}>
+                 <button type="button" onClick={stopProp(onEditRequest)} title="Edit" className="p-1.5 hover:text-[var(--color-accent)] transition-colors"><EditIcon className="w-4 h-4" /></button>
+                 <button type="button" onClick={stopProp(onInspireRequest)} title="Inspire" className="p-1.5 hover:text-[var(--color-accent)] transition-colors"><InspirationIcon className="w-4 h-4" /></button>
+                 <button type="button" onClick={stopProp(() => onRemoveBackground(id))} title="Remove BG" className="p-1.5 hover:text-[var(--color-accent)] transition-colors"><EraserIcon className="w-4 h-4" /></button>
+             </div>
+          </div>
 
-            return (
-              <button
-                key={btn.title}
-                onClick={btn.action}
-                className={buttonClasses}
-                title={btn.title}
-                style={buttonStyles}
-              >
-                {btn.icon}
-              </button>
-            )
-          })}
+          {/* Bottom Info & Actions */}
+          <div className="p-3 pointer-events-auto transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 flex items-end justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+             <div onClick={handlePromptClick} className="flex-1 min-w-0 cursor-copy group/text">
+                 <p className="text-[10px] text-white/80 line-clamp-2 font-medium leading-tight group-hover/text:text-white transition-colors drop-shadow-sm select-none">{prompt}</p>
+             </div>
+             
+             <div className="flex gap-1 flex-shrink-0">
+                <button type="button" onClick={stopProp(() => onCopyImage(id))} className="p-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-colors border border-white/10" title="Copy PNG">
+                   <ClipboardIcon className="w-3.5 h-3.5" />
+                </button>
+                <button type="button" onClick={stopProp(() => onDownload(id, prompt))} className="p-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-colors border border-white/10" title="Download">
+                   <DownloadIcon className="w-3.5 h-3.5" />
+                </button>
+                <button type="button" onClick={stopProp(() => onDelete(id))} className="p-2 bg-red-500/80 hover:bg-red-500 backdrop-blur-md rounded-full text-white transition-colors shadow-sm" title="Delete">
+                   <TrashIcon className="w-3.5 h-3.5" />
+                </button>
+             </div>
+          </div>
         </div>
       )}
-      
-      <div
-        onClick={handlePromptClick}
-        title="Click to copy prompt"
-        className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 flex items-center justify-center"
-        style={{ 
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.1)'
-        }}
-      >
-        <p className="text-xs text-center line-clamp-2 text-white font-medium drop-shadow-sm">
-          {prompt}
-        </p>
-      </div>
     </div>
   );
 };

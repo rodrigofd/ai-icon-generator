@@ -10,7 +10,7 @@ interface ConfirmationDialogProps {
   onCancel: () => void;
 }
 
-const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
+const ConfirmationDialog = ({
   isOpen,
   title,
   message,
@@ -18,9 +18,11 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   cancelLabel = "Cancel",
   onConfirm,
   onCancel,
-}) => {
+}: ConfirmationDialogProps) => {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!isOpen) return;
+    e.stopPropagation(); // Stop events from bubbling up to global handlers (like form submission)
+    
     if (e.key === 'Escape') {
       e.preventDefault();
       onCancel();
@@ -31,9 +33,11 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   }, [isOpen, onConfirm, onCancel]);
 
   useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+    if (isOpen) {
+        document.addEventListener('keydown', handleKeyDown, true); // Capture phase to ensure we intercept before others
+        return () => document.removeEventListener('keydown', handleKeyDown, true);
+    }
+  }, [isOpen, handleKeyDown]);
 
   if (!isOpen) return null;
 
@@ -43,7 +47,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
       aria-modal="true"
       aria-labelledby="dialog_title"
       aria-describedby="dialog_desc"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
     >
       <div 
         className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" 
@@ -51,8 +55,8 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         style={{ animationDuration: '0.3s' }}
       />
       <div
-        className="relative w-full max-w-md p-6 border rounded-xl animate-fade-in-scale"
-        style={{ animationDuration: '0.3s', backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
+        className="relative w-full max-w-md p-6 border rounded-xl animate-fade-in-scale shadow-2xl"
+        style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
       >
         <h2 id="dialog_title" className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>{title}</h2>
         <p id="dialog_desc" className="mt-2 text-base" style={{ color: 'var(--color-text-dim)' }}>{message}</p>

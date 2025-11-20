@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, PropsWithChildren } from 'react';
+import { createPortal } from 'react-dom';
 import { generateIcons, generateReferencedIcon, getStyleDescription as getBaseStyleDescription, getSafeMaskColor, editImage } from '../services/geminiService';
 import { IconStyle, GeneratedIcon } from '../types';
 import { removeGreenScreen, addPadding } from '../utils/imageUtils';
-import { copyPngToClipboard, downloadZip } from '../utils/fileUtils';
+import { copyPngToClipboard, downloadZip, downloadPng } from '../utils/fileUtils';
 import IconCard from './IconCard';
 import Spinner from './Spinner';
 import Toast from './Toast';
@@ -11,6 +12,13 @@ import XCircleIcon from './icons/XCircleIcon';
 import IconCardSkeleton from './IconCardSkeleton';
 import Switch from './Switch';
 import ConfirmationDialog from './ConfirmationDialog';
+
+// Portal component for overlay elements (Toast, Selection Box, Dialog, Toolbar)
+// This ensures 'fixed' positioning is relative to the viewport, avoiding issues with parent transforms.
+const Portal = ({ children }: PropsWithChildren) => {
+  if (typeof document === 'undefined') return null;
+  return createPortal(children, document.body);
+};
 
 type ReferenceMode = 'edit' | 'inspire';
 
@@ -30,15 +38,6 @@ const STYLE_OPTIONS = [
 
 const VARIANT_OPTIONS = [1, 2, 4, 8];
 
-const getContrastColor = (hex: string) => {
-    if (hex.indexOf('#') === 0) hex = hex.slice(1);
-    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-    if (hex.length !== 6) return '#FFFFFF';
-    const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
-    return (r * 0.299 + g * 0.587 + b * 0.114) > 186 ? '#000000' : '#FFFFFF';
-};
-
-// Override the imported getStyleDescription to refine prompts locally in the component for better control
 const getStyleDescription = (style: IconStyle, color?: string): string => {
   switch (style) {
     case IconStyle.FLAT_SINGLE_COLOR:
@@ -79,30 +78,33 @@ const getStyleDescription = (style: IconStyle, color?: string): string => {
 
 const StyleSelector: React.FC<{ selected: IconStyle, onSelect: (style: IconStyle) => void }> = ({ selected, onSelect }) => {
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
       {STYLE_OPTIONS.map((style) => (
         <button
           key={style.id}
           type="button"
           onClick={() => onSelect(style.id)}
-          title={style.id}
-          className="flex flex-col items-center justify-center p-2 border rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 hover:-translate-y-0.5"
-          style={{ 
-            backgroundColor: selected === style.id ? 'var(--color-accent-glow)' : 'transparent',
-            borderColor: selected === style.id ? 'var(--color-accent)' : 'var(--color-border)',
-            color: 'var(--color-text)',
-            boxShadow: selected === style.id ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-          }}
+          className={`group relative flex flex-col items-center gap-2 p-2 rounded-xl transition-all duration-200 outline-none`}
         >
-          <img src={style.imageUrl} alt={style.label} className="w-8 h-8 mb-1" />
-          <span className="text-xs font-medium">{style.label}</span>
+           <div 
+             className={`relative w-full aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 ${selected === style.id ? 'border-[var(--color-accent)] shadow-md scale-105' : 'border-transparent group-hover:scale-105'}`}
+             style={{ backgroundColor: 'var(--color-surface-secondary)' }}
+           >
+              <img src={style.imageUrl} alt={style.label} className="w-full h-full object-cover" />
+              {selected === style.id && (
+                 <div className="absolute inset-0 bg-[var(--color-accent)] opacity-10" />
+              )}
+           </div>
+           <span className={`text-xs font-medium transition-colors ${selected === style.id ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-dim)] group-hover:text-[var(--color-text)]'}`}>
+             {style.label}
+           </span>
         </button>
       ))}
     </div>
   );
 }
 
-const IconGenerator: React.FC = () => {
+const IconGenerator = () => {
   const [prompt, setPrompt] = useState<string>('A rocket ship launching');
   const [style, setStyle] = useState<IconStyle>(IconStyle.FLAT_SINGLE_COLOR);
   const [color, setColor] = useState<string>('#4F46E5');
@@ -134,15 +136,16 @@ const IconGenerator: React.FC = () => {
   const formRef = useRef<HTMLFormElement>(null);
   const resultsSectionRef = useRef<HTMLDivElement>(null);
   const iconCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  
+  // Drag Selection State
   const [isDragging, setIsDragging] = useState(false);
   const [selectionBox, setSelectionBox] = useState<{x: number, y: number, width: number, height: number} | null>(null);
   const dragStartPoint = useRef<{x: number, y: number} | null>(null);
-  const dragInitialState = useRef<{ initialIds: Set<string> } | null>(null);
+  const dragInitialSelection = useRef<Set<string> | null>(null);
   
-  const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
+  const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false); // Mobile selection mode
   const longPressTimeout = useRef<number | null>(null);
   
-  // Sample prompt logic
   const [allPrompts, setAllPrompts] = useState<string[]>([]);
   const [lastAutoPrompt, setLastAutoPrompt] = useState<string>('A rocket ship launching');
   const [placeholderPrompt, setPlaceholderPrompt] = useState<string>('A rocket ship launching...');
@@ -165,6 +168,7 @@ const IconGenerator: React.FC = () => {
       .catch(e => console.error("Failed to load prompts", e));
   }, []);
 
+  // Load/Save History
   useEffect(() => {
     window.localforage.getItem('iconHistory')
       .then((storedHistory: GeneratedIcon[] | null) => {
@@ -189,14 +193,16 @@ const IconGenerator: React.FC = () => {
 
   useEffect(() => {
     if (isLoading && skeletonsCount > 0) {
-        resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (window.innerWidth < 768) {
+             resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
   }, [isLoading, skeletonsCount]);
 
   useEffect(() => {
     if (referenceIcon) return;
     if (style === IconStyle.FLAT_SINGLE_COLOR || style === IconStyle.OUTLINE) {
-        setColor('#4F46E5'); // Default modern blue/purple
+        setColor('#4F46E5');
     }
   }, [style, referenceIcon]);
 
@@ -215,73 +221,29 @@ const IconGenerator: React.FC = () => {
     let mainSubject = "";
 
     if (is3D) {
-        // 3D STRATEGY: "Object Only"
         const entityType = style === IconStyle.ISOMETRIC ? "Isometric 3D Object" : "3D Rendered Object";
-        
-        systemPreamble = `Role: Expert 3D Modeler.
-Task: Render a single, isolated ${entityType} based on: "${promptForIcon}".`;
-
-        mainSubject = `Subject: "${promptForIcon}" as a tangible 3D object.
-CRITICAL INSTRUCTION: Generate the object completely ISOLATED in the void. 
-Do NOT render it inside a "container", "card", "bubble", "button", "badge", or "app icon shape".
-Just the raw object floating in space.`;
-
-        backgroundInstruction = `BACKGROUND:
-1. The background must be a SINGLE, FLAT, UNIFORM COLOR: ${maskColor}.
-2. It must be a solid hex color for chroma keying.
-3. NO gradients. NO shadows on the background. NO floor. NO ground plane.
-4. NO "icon background" shape behind the object.`;
-
+        systemPreamble = `Role: Expert 3D Modeler. Task: Render a single, isolated ${entityType} based on: "${promptForIcon}".`;
+        mainSubject = `Subject: "${promptForIcon}" as a tangible 3D object. CRITICAL INSTRUCTION: Generate the object completely ISOLATED in the void.`;
+        backgroundInstruction = `BACKGROUND: SINGLE, FLAT, UNIFORM COLOR: ${maskColor}. NO gradients. NO shadows on the background.`;
         negativePrompt = `Negative Prompt: icon container, icon background, app icon shape, rounded square, squircle, circle background, card, tile, badge, button, ui element, border, frame, vignette, noise, floor, ground, shadow, gradient background.`;
-
     } else {
-        // 2D STRATEGY: "Icon Designer"
         const complexityInstruction = isUiIcon 
         ? "Complexity: LOW. Create a High-Contrast, Simple, Legible icon. Avoid small details. Readable at 24px." 
         : "Complexity: Medium. Professional icon detail level.";
-
-        systemPreamble = `Role: Senior Icon Designer.
-Task: Create a professional 512x512 vector-style icon.
-IMPORTANT: Generate the ISOLATED OBJECT only. Do not generate an app icon button or container.`;
-
-        mainSubject = `Subject: "${promptForIcon}"
-${complexityInstruction}`;
-
-        backgroundInstruction = `Background: SOLID ${maskColor}. 
-CRITICAL: The background is a chroma-key mask.
-The icon must be a free-floating object.
-Do NOT render a background shape, card, tile, or "app icon" squircle behind the object.`;
-
+        systemPreamble = `Role: Senior Icon Designer. Task: Create a professional 512x512 vector-style icon. IMPORTANT: Generate the ISOLATED OBJECT only.`;
+        mainSubject = `Subject: "${promptForIcon}" ${complexityInstruction}`;
+        backgroundInstruction = `Background: SOLID ${maskColor}. CRITICAL: The background is a chroma-key mask.`;
         negativePrompt = `Negative Prompt: text, watermark, signature, frame, border, margin, bounding box, card, container, background shape, rounded square, squircle, app icon base, launcher icon, platform, podium, stage, floor, photorealistic, noise, grainy, blurry, landscape.`;
     }
 
     if (referenceIcon) {
         if (referenceIcon.mode === 'edit') {
-            return `${systemPreamble}
-Mode: EDITING.
-Original Description: "${referenceIcon.icon.prompt}"
-User Instruction: "${promptForIcon}"
-Constraint: Apply the instruction while preserving the original's exact style, perspective, and composition.
-${styleDescription}
-${backgroundInstruction}
-${negativePrompt}`;
-        } else { // inspire mode
-            return `${systemPreamble}
-Mode: INSPIRATION.
-Task: Create a NEW ${is3D ? 'asset' : 'icon'} for: "${promptForIcon}".
-Constraint: Strictly copy the artistic style, lighting, and rendering technique of the provided reference image.
-${backgroundInstruction}
-${negativePrompt}`;
+            return `${systemPreamble} Mode: EDITING. Original Description: "${referenceIcon.icon.prompt}" User Instruction: "${promptForIcon}" Constraint: Apply the instruction while preserving the original's exact style, perspective, and composition. ${styleDescription} ${backgroundInstruction} ${negativePrompt}`;
+        } else { 
+            return `${systemPreamble} Mode: INSPIRATION. Task: Create a NEW ${is3D ? 'asset' : 'icon'} for: "${promptForIcon}". Constraint: Strictly copy the artistic style, lighting, and rendering technique of the provided reference image. ${backgroundInstruction} ${negativePrompt}`;
         }
     } else {
-        // Standard Generation
-        return `${systemPreamble}
-${mainSubject}
-${styleDescription}
-${paddingInstruction}
-Composition: Centered, single isolated object.
-${backgroundInstruction}
-${negativePrompt}`;
+        return `${systemPreamble} ${mainSubject} ${styleDescription} ${paddingInstruction} Composition: Centered, single isolated object. ${backgroundInstruction} ${negativePrompt}`;
     }
   }, [style, color, isUiIcon, padding, referenceIcon, isSingleColorStyle]);
 
@@ -317,40 +279,25 @@ ${negativePrompt}`;
       setProcessingIds(prev => new Set(prev).add(id));
 
       try {
-          // 1. Get raw base64 from current pngSrc (Data URL)
           const base64Original = icon.pngSrc.split(',')[1];
-
-          // 2. Determine mask color based on icon style and color
           const isSingleColor = icon.style === IconStyle.FLAT_SINGLE_COLOR || icon.style === IconStyle.OUTLINE;
           const maskColor = getSafeMaskColor(isSingleColor ? icon.color : undefined);
-
-          // 3. Construct prompt
           const fixPrompt = `remove any background in the image and replace it with a flat, single-color background of color ${maskColor} filling the entire canvas behind the object.`;
-
-          // 4. Call edit API
+          
           const editedB64 = await editImage(base64Original, 'image/png', fixPrompt);
-
-          // 5. Remove background (Green/Blue screen)
           const tolerance = icon.style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25;
           const processedDataUrl = await removeGreenScreen(editedB64, tolerance);
 
-          // 6. Update History in-situ
           setHistory(prev => prev.map(item => {
-              if (item.id === id) {
-                  return { ...item, pngSrc: processedDataUrl };
-              }
+              if (item.id === id) return { ...item, pngSrc: processedDataUrl };
               return item;
           }));
           
-          if (!silent) {
-            setToast({ message: 'Background removed successfully!' });
-          }
+          if (!silent) setToast({ message: 'Background removed successfully!' });
 
       } catch (error) {
           console.error(error);
-          if (!silent) {
-            setToast({ message: 'Failed to remove background.' });
-          }
+          if (!silent) setToast({ message: 'Failed to remove background.' });
       } finally {
           setProcessingIds(prev => {
               const next = new Set(prev);
@@ -363,9 +310,7 @@ ${negativePrompt}`;
   const handleRemoveBackgroundSelected = useCallback(async () => {
       const ids = Array.from(selectedIds);
       if (ids.length === 0) return;
-
       setToast({ message: `Removing background for ${ids.length} icons...` });
-
       try {
           await Promise.all(ids.map(id => handleRemoveBackground(id, true)));
           setToast({ message: 'Batch background removal complete!' });
@@ -399,6 +344,14 @@ ${negativePrompt}`;
 
   const handleDeleteSelected = useCallback(() => requestDeletion(Array.from(selectedIds)), [selectedIds, requestDeletion]);
 
+  const handleDownload = useCallback((id: string, promptName: string) => {
+    const icon = history.find(i => i.id === id);
+    if(icon) {
+        const name = promptName.toLowerCase().replace(/\s+/g, '-').slice(0, 30);
+        downloadPng(icon.pngSrc, name);
+    }
+  }, [history]);
+
   const handleDownloadSelected = useCallback(async () => {
     const selectedIcons = history.filter(icon => selectedIds.has(icon.id));
     if (selectedIcons.length === 0) return;
@@ -414,6 +367,18 @@ ${negativePrompt}`;
       setError(err instanceof Error ? err.message : 'An unknown zip error occurred.');
     }
   }, [history, selectedIds]);
+
+  const handleCopyImage = useCallback(async (id: string) => {
+    const icon = history.find(i => i.id === id);
+    if (icon) {
+        try {
+            await copyPngToClipboard(icon.pngSrc);
+            setToast({ message: 'Icon copied to clipboard!' });
+        } catch (e) {
+            setToast({ message: 'Failed to copy icon.' });
+        }
+    }
+  }, [history]);
 
   const exitSelectionMode = useCallback(() => {
     setIsSelectionMode(false);
@@ -432,7 +397,6 @@ ${negativePrompt}`;
   const handleBatchModeToggle = (checked: boolean) => {
       setIsBatchMode(checked);
       if (allPrompts.length === 0) return;
-
       let newPrompt = '';
       if (checked) {
          const shuffled = [...allPrompts].sort(() => 0.5 - Math.random());
@@ -440,55 +404,49 @@ ${negativePrompt}`;
       } else {
          newPrompt = allPrompts[Math.floor(Math.random() * allPrompts.length)];
       }
-      
       setPlaceholderPrompt(newPrompt);
-
-      // Only replace the main prompt input if it hasn't been touched by the user 
-      // (meaning it still matches the last auto-generated prompt, or is the hardcoded default, or is empty)
       if (prompt === lastAutoPrompt || prompt === 'A rocket ship launching' || prompt === '') {
          setPrompt(newPrompt);
          setLastAutoPrompt(newPrompt);
       } else {
-         // If user has typed something, just update the lastAutoPrompt so we know the "suggestion" context changed
          setLastAutoPrompt(newPrompt);
       }
   };
 
+  // Hotkeys & Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Global shortcut for Generation: Ctrl+Enter or Cmd+Enter
+      const isInput = (e.target as HTMLElement).matches('textarea, input, select');
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        if (!isLoading && formRef.current) {
-          formRef.current.requestSubmit();
-        }
+        if (!isLoading && formRef.current) formRef.current.requestSubmit();
         return;
       }
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-        // Avoid conflicting with text input selection
-        const activeTag = document.activeElement?.tagName?.toLowerCase();
-        if (activeTag === 'textarea' || activeTag === 'input') {
-            return;
-        }
+        if (isInput) return;
         e.preventDefault();
         handleToggleSelectAll();
         return;
       } 
-      
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (isInput) return;
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+
       if (e.key === 'Escape') {
+        if (confirmingDelete) return; 
         e.preventDefault();
         exitSelectionMode();
         return;
       }
 
-      // Global DELETE shortcut for selected items
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const activeTag = document.activeElement?.tagName?.toLowerCase();
-        if (activeTag === 'textarea' || activeTag === 'input') {
-          return;
-        }
-        
+        if (isInput) return;
         if (selectedIds.size > 0) {
             e.preventDefault();
             handleDeleteSelected();
@@ -498,8 +456,7 @@ ${negativePrompt}`;
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoading, handleToggleSelectAll, exitSelectionMode, selectedIds, handleDeleteSelected]);
-
+  }, [isLoading, handleToggleSelectAll, exitSelectionMode, selectedIds, handleDeleteSelected, handleUndo, confirmingDelete]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -510,6 +467,10 @@ ${negativePrompt}`;
     setIsLoading(true);
     setError(null);
     setSkeletonsCount(promptsToProcess.length * numVariants);
+
+    if (window.innerWidth < 1024) {
+         setTimeout(() => resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
 
     const allPromises = promptsToProcess.map(async (currentPrompt) => {
       try {
@@ -547,8 +508,8 @@ ${negativePrompt}`;
 
   const handleDelete = (id: string) => requestDeletion([id]);
   
+  // Selection Logic (Click)
   const handleIconClick = useCallback((e: React.MouseEvent, clickedId: string) => {
-    e.preventDefault();
     if (isSelectionMode) {
         const newSelection = new Set(selectedIds);
         newSelection.has(clickedId) ? newSelection.delete(clickedId) : newSelection.add(clickedId);
@@ -560,322 +521,331 @@ ${negativePrompt}`;
 
     const { shiftKey, ctrlKey, metaKey } = e;
     const isCtrl = ctrlKey || metaKey;
-
+    
     let newSelection = new Set(selectedIds);
 
     if (shiftKey && lastSelectedId && history.length > 0) {
         const lastIndex = history.findIndex(i => i.id === lastSelectedId);
         const currentIndex = history.findIndex(i => i.id === clickedId);
-        const from = Math.min(lastIndex, currentIndex);
-        const to = Math.max(lastIndex, currentIndex);
-        if (from !== -1 && to !== -1) {
-            const rangeIds = history.slice(from, to + 1).map(i => i.id);
-            if (!isCtrl) {
-              newSelection.clear();
-            }
-            // Add all items in range to selection
-            rangeIds.forEach(id => newSelection.add(id));
+        if (lastIndex !== -1 && currentIndex !== -1) {
+             const from = Math.min(lastIndex, currentIndex);
+             const to = Math.max(lastIndex, currentIndex);
+             const rangeIds = history.slice(from, to + 1).map(i => i.id);
+             
+             if (!isCtrl) newSelection.clear(); 
+             rangeIds.forEach(id => newSelection.add(id));
         }
     } else if (isCtrl) {
         newSelection.has(clickedId) ? newSelection.delete(clickedId) : newSelection.add(clickedId);
+        setLastSelectedId(clickedId);
     } else {
-        if (selectedIds.has(clickedId) && selectedIds.size === 1) {
-            newSelection = new Set();
-        } else {
-            newSelection = new Set([clickedId]);
-        }
+        newSelection.clear();
+        newSelection.add(clickedId);
+        setLastSelectedId(clickedId);
     }
-    
     setSelectedIds(newSelection);
-    setLastSelectedId(clickedId);
   }, [history, lastSelectedId, selectedIds, isSelectionMode, exitSelectionMode]);
 
 
+  // Drag Selection Logic
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    if (target.closest('form') || target.closest('[data-selection-toolbar="true"]') || target.closest('[data-icon-card="true"]')) return;
-    
-    // Allow starting drag from a small margin around the grid
-    if (resultsSectionRef.current) {
-        const rect = resultsSectionRef.current.getBoundingClientRect();
-        const margin = 20; // Virtual margin in pixels
-        if (e.clientX < rect.left - margin || e.clientX > rect.right + margin || e.clientY < rect.top - margin || e.clientY > rect.bottom + margin) {
-            return;
-        }
-    } else {
+    if (target.closest('button') || target.closest('input') || target.closest('textarea') || target.closest('[data-icon-card="true"]') || target.closest('[data-selection-toolbar="true"]')) {
         return;
     }
-
+    
     e.preventDefault();
     setIsDragging(true);
     dragStartPoint.current = { x: e.clientX, y: e.clientY };
     setSelectionBox({ x: e.clientX, y: e.clientY, width: 0, height: 0 });
-    dragInitialState.current = { initialIds: new Set(selectedIds) };
+    
+    const isCtrl = e.ctrlKey || e.metaKey;
+    const isShift = e.shiftKey;
+    
+    if (isCtrl || isShift) {
+        dragInitialSelection.current = new Set(selectedIds);
+    } else {
+        setSelectedIds(new Set()); 
+        dragInitialSelection.current = new Set();
+    }
   }, [selectedIds]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || !dragStartPoint.current || !dragInitialState.current) return;
+    if (!isDragging || !dragStartPoint.current || !dragInitialSelection.current) return;
     e.preventDefault();
-    const { x: startX, y: startY } = dragStartPoint.current;
-    const { clientX: currentX, clientY: currentY } = e;
-    const x = Math.min(startX, currentX), y = Math.min(startY, currentY), width = Math.abs(startX - currentX), height = Math.abs(startY - currentY);
+
+    const startX = dragStartPoint.current.x;
+    const startY = dragStartPoint.current.y;
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+
+    const x = Math.min(startX, currentX);
+    const y = Math.min(startY, currentY);
+    const width = Math.abs(startX - currentX);
+    const height = Math.abs(startY - currentY);
+
     setSelectionBox({ x, y, width, height });
 
     const selectionRect = { left: x, top: y, right: x + width, bottom: y + height };
-    const initialIds = dragInitialState.current.initialIds;
-    const newSelection = new Set(initialIds);
+    const itemsInBox = new Set<string>();
 
-    iconCardRefs.current.forEach((el, id) => {
-        if (el) {
-            const elRect = el.getBoundingClientRect();
-            const intersects = !(selectionRect.right < elRect.left || selectionRect.left > elRect.right || selectionRect.bottom < elRect.top || selectionRect.top > elRect.bottom);
-            
-            if (intersects) {
-                newSelection.add(id);
-            } else if (initialIds.has(id)) {
-                // This logic is complex. Standard drag is to just select what's inside.
-                // Let's simplify: drag selects intersecting items.
-            }
-        }
-    });
-    
-    const finalSelection = new Set<string>();
     iconCardRefs.current.forEach((el, id) => {
       if(el) {
         const elRect = el.getBoundingClientRect();
-        if (!(selectionRect.right < elRect.left || selectionRect.left > elRect.right || selectionRect.bottom < elRect.top || selectionRect.top > elRect.bottom)) {
-          finalSelection.add(id);
+        const intersects = !(selectionRect.right < elRect.left || 
+                           selectionRect.left > elRect.right || 
+                           selectionRect.bottom < elRect.top || 
+                           selectionRect.top > elRect.bottom);
+        
+        if (intersects) {
+            itemsInBox.add(id);
         }
       }
     });
 
-    setSelectedIds(finalSelection);
+    const newSelection = new Set(dragInitialSelection.current);
+    itemsInBox.forEach(id => newSelection.add(id));
+    setSelectedIds(newSelection);
 
   }, [isDragging]);
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
-    if (isDragging && dragStartPoint.current) {
-        const dist = Math.sqrt(Math.pow(e.clientX - dragStartPoint.current.x, 2) + Math.pow(e.clientY - dragStartPoint.current.y, 2));
-        const target = e.target as HTMLElement;
-        if (dist < 5 && !target.closest('[data-icon-card="true"]')) {
-           exitSelectionMode();
-        }
+    if (isDragging) {
+        setIsDragging(false);
+        setSelectionBox(null);
+        dragStartPoint.current = null;
+        dragInitialSelection.current = null;
     }
-    setIsDragging(false);
-    dragStartPoint.current = null;
-    setSelectionBox(null);
-    dragInitialState.current = null;
-  }, [isDragging, exitSelectionMode]);
-
-  const handleVariantChange = (direction: 'inc' | 'dec') => {
-      const currentIndex = VARIANT_OPTIONS.indexOf(numVariants);
-      setNumVariants(VARIANT_OPTIONS[direction === 'inc' ? Math.min(currentIndex + 1, VARIANT_OPTIONS.length - 1) : Math.max(currentIndex - 1, 0)]);
-  };
+  }, [isDragging]);
 
   useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    if (isDragging) {
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleMouseUp]);
   
   const handleTouchStart = (id: string) => {
     longPressTimeout.current = window.setTimeout(() => {
       setIsSelectionMode(true);
       setSelectedIds(prev => new Set(prev).add(id));
       setLastSelectedId(id);
+      if (navigator.vibrate) navigator.vibrate(50);
       longPressTimeout.current = null;
     }, 500);
   };
   
-  const handleTouchMove = () => {
-    if (longPressTimeout.current) clearTimeout(longPressTimeout.current);
-  };
-
+  const handleTouchMove = () => { if (longPressTimeout.current) clearTimeout(longPressTimeout.current); };
   const handleTouchEnd = (e: React.TouchEvent, id: string) => {
     if (longPressTimeout.current) {
       clearTimeout(longPressTimeout.current);
-      // It was a tap, not a long press.
-      handleIconClick(e as any, id);
     }
   };
 
-
   const singleSelectedIcon = selectedIds.size === 1 ? history.find(icon => icon.id === Array.from(selectedIds)[0]) : null;
-
   const newIdsArray = Array.from(newlyAddedIds);
 
   return (
-    <div className="space-y-6" onMouseDown={handleMouseDown}>
-      <ConfirmationDialog isOpen={!!confirmingDelete} title="Confirm Deletion" message={`Are you sure you want to permanently delete ${confirmingDelete?.count} icon(s)?`} onConfirm={handleConfirmDelete} onCancel={() => setConfirmingDelete(null)} />
-      {toast && <Toast message={toast.message} action={toast.action} onClose={() => setToast(null)} />}
-      {selectionBox && <div className="fixed border-2 rounded-lg pointer-events-none z-50" style={{ left: selectionBox.x, top: selectionBox.y, width: selectionBox.width, height: selectionBox.height, borderColor: 'var(--color-accent)', background: 'var(--color-accent-glow)' }} />}
-      <SelectionToolbar 
-        selectedCount={selectedIds.size} 
-        totalCount={history.length} 
-        onDelete={handleDeleteSelected} 
-        onDownload={handleDownloadSelected} 
-        onToggleSelectAll={handleToggleSelectAll} 
-        onEdit={singleSelectedIcon ? () => handleSetReference(singleSelectedIcon.id, 'edit') : undefined} 
-        onInspire={singleSelectedIcon ? () => handleSetReference(singleSelectedIcon.id, 'inspire') : undefined} 
-        onCopy={singleSelectedIcon ? () => copyPngToClipboard(singleSelectedIcon.pngSrc).then(() => setToast({ message: 'Icon copied!' })) : undefined} 
-        onRemoveBackground={selectedIds.size > 0 ? handleRemoveBackgroundSelected : undefined}
-        isSelectionMode={isSelectionMode} 
-        onExitSelectionMode={exitSelectionMode} 
-      />
-      
-      <form ref={formRef} onSubmit={handleSubmit}>
+    <div className="relative min-h-[80vh]">
+      <Portal>
+        <ConfirmationDialog isOpen={!!confirmingDelete} title="Confirm Deletion" message={`Are you sure you want to permanently delete ${confirmingDelete?.count} icon(s)?`} onConfirm={handleConfirmDelete} onCancel={() => setConfirmingDelete(null)} />
+        
+        {toast && <Toast message={toast.message} action={toast.action} onClose={() => setToast(null)} />}
+        
+        {selectionBox && (
+            <div 
+                className="fixed z-[9999] pointer-events-none border-[0.5px] border-[var(--color-accent)] bg-[var(--color-accent)]/10 backdrop-blur-[2px] rounded shadow-sm ring-1 ring-[var(--color-accent)]/20" 
+                style={{ left: selectionBox.x, top: selectionBox.y, width: selectionBox.width, height: selectionBox.height }} 
+            />
+        )}
+
+        <SelectionToolbar 
+            selectedCount={selectedIds.size} totalCount={history.length} onDelete={handleDeleteSelected} onDownload={handleDownloadSelected} onToggleSelectAll={handleToggleSelectAll} 
+            onEdit={singleSelectedIcon ? () => handleSetReference(singleSelectedIcon.id, 'edit') : undefined} 
+            onInspire={singleSelectedIcon ? () => handleSetReference(singleSelectedIcon.id, 'inspire') : undefined} 
+            onCopy={singleSelectedIcon ? () => handleCopyImage(singleSelectedIcon.id) : undefined} 
+            onRemoveBackground={selectedIds.size > 0 ? handleRemoveBackgroundSelected : undefined} isSelectionMode={isSelectionMode} onExitSelectionMode={exitSelectionMode} 
+        />
+      </Portal>
+
+      <div className="mb-12">
         {referenceIcon && (
-          <div className="mb-4 p-3 flex items-center justify-between border rounded-lg" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-accent-glow)' }}>
-            <div className="flex items-center gap-3 overflow-hidden">
-              <img src={referenceIcon.icon.pngSrc} className="w-10 h-10 flex-shrink-0 rounded" alt="Reference Icon" />
-              <div className="overflow-hidden">
-                <span className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--color-accent)' }}>
-                  {referenceIcon.mode === 'edit' ? 'Editing Icon' : 'Inspired by Icon'}
+          <div className="mb-6 p-4 flex items-center justify-between border rounded-2xl animate-scale-in bg-[var(--color-accent-glow)] border-[var(--color-accent-dark)] text-[var(--color-accent)]">
+            <div className="flex items-center gap-4 overflow-hidden">
+              <div className="w-12 h-12 rounded-lg overflow-hidden bg-white shadow-sm border-2 border-white/20 flex-shrink-0">
+                 <img src={referenceIcon.icon.pngSrc} className="w-full h-full object-contain" alt="Reference Icon" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold uppercase tracking-widest opacity-80">
+                  {referenceIcon.mode === 'edit' ? 'Editing Mode' : 'Inspiration Mode'}
                 </span>
-                <p className="text-sm truncate" style={{ color: 'var(--color-text-dim)' }}>
-                  {referenceIcon.icon.prompt}
-                </p>
+                <span className="font-medium truncate text-sm opacity-90">Based on: {referenceIcon.icon.prompt}</span>
               </div>
             </div>
-            <button type="button" onClick={() => setReferenceIcon(null)} className="p-1 flex-shrink-0 ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5" title="Clear reference">
-              <XCircleIcon className="w-6 h-6" style={{ color: 'var(--color-text-dim)' }}/>
+            <button type="button" onClick={() => setReferenceIcon(null)} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors" title="Clear reference">
+              <XCircleIcon className="w-6 h-6" />
             </button>
           </div>
         )}
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            <div>
-                <div className="flex justify-between items-center">
-                    <label htmlFor="prompt" className="text-sm font-semibold" style={{ color: 'var(--color-text-dim)' }}>
-                        {isBatchMode ? "Prompts (one per line)" : "Describe the icon you want to create"}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Panel: Controls - Wrapped in FORM */}
+          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-6">
+             <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+             {/* Prompt Card */}
+             <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-1 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-[var(--color-accent)]">
+                <div className="p-3 flex justify-between items-center border-b border-[var(--color-border)]/50 mb-1">
+                    <label htmlFor="prompt" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] ml-1">
+                        {isBatchMode ? "Batch Prompts" : "Prompt"}
                     </label>
-                    <div className="flex items-center space-x-2">
-                        <label htmlFor="batch-mode-toggle" className="text-sm" style={{ color: 'var(--color-text-dim)' }}>Batch Mode</label>
+                    <div className="flex items-center gap-2">
+                        <label htmlFor="batch-mode-toggle" className="text-xs font-medium text-[var(--color-text-dim)] cursor-pointer select-none">Batch Mode</label>
                         <Switch id="batch-mode-toggle" checked={isBatchMode} onChange={handleBatchModeToggle} />
                     </div>
                 </div>
-                {isBatchMode && <p className="text-xs mt-1" style={{color: 'var(--color-text-dim)'}}>Enter multiple prompts on separate lines to generate icons in bulk.</p>}
-            </div>
-            <textarea id="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={placeholderPrompt}
-              className="w-full h-28 sm:h-32 bg-transparent border rounded-lg p-3 focus:outline-none focus:ring-2 focus:shadow-[var(--shadow-inner-sm)]"
-              // FIX: Replaced invalid `ringColor` property with the correct CSS custom property `--tw-ring-color`
-              // to align with Tailwind's ring utilities and resolve the TypeScript error.
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)', '--tw-ring-color': 'var(--color-accent)' } as React.CSSProperties}
-              title={isBatchMode ? "Enter one prompt per line to generate multiple icons at once" : "Describe the icon you want, e.g., 'a rocket ship launching'"}
-            />
+                <textarea 
+                  id="prompt" 
+                  value={prompt} 
+                  onChange={(e) => setPrompt(e.target.value)} 
+                  placeholder={placeholderPrompt}
+                  className="w-full h-32 bg-transparent p-3 text-lg font-medium placeholder:text-[var(--color-text-dim)]/50 focus:outline-none resize-none rounded-xl"
+                  style={{ color: 'var(--color-text)' }}
+                  onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                         // Propagation allows global handler to submit
+                      }
+                  }}
+                />
+             </div>
+
+             {/* Settings Card */}
+             <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 shadow-sm space-y-6">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-3">Style</label>
+                  <StyleSelector selected={style} onSelect={setStyle} />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                   {/* Variants Control */}
+                   <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Count</label>
+                      <div className="flex bg-[var(--color-surface-secondary)] p-1 rounded-xl border border-[var(--color-border)]">
+                         {VARIANT_OPTIONS.map(v => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setNumVariants(v)}
+                              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${numVariants === v ? 'bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm border border-[var(--color-border)]' : 'text-[var(--color-text-dim)] hover:text-[var(--color-text)]'}`}
+                            >
+                               {v}
+                            </button>
+                         ))}
+                      </div>
+                   </div>
+
+                   {/* Padding Input */}
+                   <div>
+                      <label htmlFor="padding" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Padding (px)</label>
+                      <input 
+                        id="padding" 
+                        type="number" 
+                        value={padding} 
+                        onChange={e => setPadding(Math.max(0, parseInt(e.target.value, 10) || 0))} 
+                        className="w-full h-[42px] bg-[var(--color-surface-secondary)] border border-[var(--color-border)] rounded-xl text-center font-semibold focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+                        style={{ color: 'var(--color-text)' }}
+                      />
+                   </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 pt-2">
+                    <div className="flex items-center justify-between bg-[var(--color-surface-secondary)] border border-[var(--color-border)] rounded-xl p-3 flex-1">
+                       <span className="text-sm font-medium ml-1">Optimize for UI</span>
+                       <Switch id="ui-icon-toggle" checked={isUiIcon} onChange={setIsUiIcon} />
+                    </div>
+
+                    <div className={`relative flex-1 h-[50px] rounded-xl border border-[var(--color-border)] overflow-hidden transition-all duration-300 ${isSingleColorStyle ? 'opacity-100' : 'opacity-40 pointer-events-none grayscale'}`}>
+                         <input id="native-color-picker" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                         <div className="w-full h-full flex items-center justify-center gap-2" style={{ backgroundColor: color }}>
+                             <span className="font-mono text-xs font-bold bg-black/20 backdrop-blur-sm text-white px-2 py-1 rounded uppercase shadow-sm">{color}</span>
+                         </div>
+                    </div>
+                </div>
+
+                {/* Advanced Toggle */}
+                <div className="border-t border-[var(--color-border)] pt-4">
+                    <button type="button" onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} className="text-xs font-semibold text-[var(--color-text-dim)] hover:text-[var(--color-accent)] transition-colors flex items-center gap-1">
+                        {isAdvancedOpen ? 'Hide Advanced' : 'Show Advanced Prompt'}
+                    </button>
+                    <div className={`transition-all duration-300 overflow-hidden ${isAdvancedOpen ? 'max-h-40 opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+                        <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} readOnly={isBatchMode} className="w-full h-32 text-xs font-mono p-3 bg-[var(--color-surface-secondary)] rounded-xl border border-[var(--color-border)] focus:outline-none text-[var(--color-text-dim)] resize-none" />
+                    </div>
+                </div>
+             </div>
+             
+             <button type="submit" disabled={isLoading} className="w-full py-4 rounded-2xl font-bold text-white text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:transform-none disabled:shadow-none transition-all duration-200 flex justify-center items-center gap-3"
+                style={{ background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-dark))' }}>
+                  {isLoading ? <><Spinner /> Generating...</> : (referenceIcon ? 'Regenerate Icon' : 'Generate Icons')}
+             </button>
+             </form>
           </div>
 
-          <div className="flex flex-col justify-between space-y-4">
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Style</label>
-              <StyleSelector selected={style} onSelect={setStyle} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 items-end">
-                <div className="grid grid-cols-3 gap-2">
-                    <div>
-                        <label className="block text-xs font-semibold mb-1 text-center" style={{ color: 'var(--color-text-dim)' }}>Variants</label>
-                        <div className="flex items-center justify-between w-full h-11 border rounded-lg" style={{borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)'}}>
-                            <button type="button" onClick={() => handleVariantChange('dec')} disabled={numVariants === VARIANT_OPTIONS[0]} className="px-3 py-2 text-lg disabled:opacity-25 transition-colors hover:bg-black/5 dark:hover:bg-white/10" title="Decrease number of variants">-</button>
-                            <span className="font-semibold text-lg" style={{ color: 'var(--color-accent)' }}>{numVariants}</span>
-                            <button type="button" onClick={() => handleVariantChange('inc')} disabled={numVariants === VARIANT_OPTIONS[VARIANT_OPTIONS.length - 1]} className="px-3 py-2 text-lg disabled:opacity-25 transition-colors hover:bg-black/5 dark:hover:bg-white/10" title="Increase number of variants">+</button>
-                        </div>
-                    </div>
-                     <div>
-                        <label htmlFor="padding" className="block text-xs font-semibold mb-1 text-center" style={{ color: 'var(--color-text-dim)' }}>Padding</label>
-                        <input id="padding" type="number" value={padding} onChange={e => setPadding(Math.max(0, parseInt(e.target.value, 10) || 0))} className="w-full h-11 text-lg bg-transparent border rounded-lg p-2 text-center focus:outline-none focus:ring-2 focus:shadow-[var(--shadow-inner-sm)]" 
-                        // FIX: Replaced invalid `ringColor` property with the correct CSS custom property `--tw-ring-color`
-                        // to align with Tailwind's ring utilities and resolve the TypeScript error.
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)', '--tw-ring-color': 'var(--color-accent)', boxShadow: 'var(--shadow-sm)' } as React.CSSProperties} min="0" title="Set transparent padding around the icon (in pixels). Use 0 for no padding." />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-semibold mb-1 text-center" style={{ color: 'var(--color-text-dim)' }}>For UI</label>
-                        <div className="flex items-center justify-center w-full h-11"><Switch id="ui-icon-toggle" checked={isUiIcon} onChange={setIsUiIcon} title="Optimize for simple, clear icons suitable for user interfaces." /></div>
-                    </div>
+          {/* Right Panel: Results - Drag Area */}
+          {/* We attach mouse down here, but ensure it fills height to allow dragging in empty space */}
+          <div className="lg:col-span-7 flex flex-col min-h-[500px]" onMouseDown={handleMouseDown}>
+             {(history.length > 0 || isLoading) ? (
+                <div ref={resultsSectionRef} className="space-y-6 pb-20 flex-1">
+                   <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-[var(--color-text)]">Generated Icons</h2>
+                      <span className="text-sm text-[var(--color-text-dim)]">{history.length} assets</span>
+                   </div>
+                   
+                   {/* Grid */}
+                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-4 select-none">
+                      {isLoading && Array.from({ length: skeletonsCount }).map((_, index) => <IconCardSkeleton key={`skeleton-${index}`} />)}
+                      {history.map(icon => {
+                        const isNew = newlyAddedIds.has(icon.id);
+                        const isDeleting = deletingIds.has(icon.id);
+                        return (
+                            <div 
+                              key={icon.id}
+                              ref={(el) => { if (el) iconCardRefs.current.set(icon.id, el); else iconCardRefs.current.delete(icon.id); }}
+                              className={isDeleting ? 'scale-0 opacity-0 transition-all duration-300' : isNew ? 'animate-scale-in' : ''}
+                              style={isNew ? { animationDelay: `${newIdsArray.findIndex(id => id === icon.id) * 50}ms` } : {}}
+                              onTouchStart={() => handleTouchStart(icon.id)}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={(e) => handleTouchEnd(e, icon.id)}
+                            >
+                              <IconCard 
+                                {...icon} 
+                                isSelected={selectedIds.has(icon.id)} 
+                                isProcessing={processingIds.has(icon.id)}
+                                onSelect={handleIconClick} 
+                                onDelete={handleDelete} 
+                                onPromptCopy={() => setToast({ message: 'Prompt copied!'})} 
+                                onCopyImage={handleCopyImage}
+                                onDownload={handleDownload}
+                                onEditRequest={() => handleSetReference(icon.id, 'edit')} 
+                                onInspireRequest={() => handleSetReference(icon.id, 'inspire')} 
+                                onRemoveBackground={handleRemoveBackground}
+                              />
+                            </div>
+                        );
+                      })}
+                   </div>
                 </div>
-                <div className={`col-span-2 transition-opacity duration-300 ${isSingleColorStyle ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Color</label>
-                  <div onClick={() => document.getElementById('native-color-picker')?.click()} title="Select the primary color for single-color or outline styles." className="relative w-full h-11 border rounded-lg flex items-center justify-center text-center cursor-pointer transition-opacity hover:opacity-90" style={{ backgroundColor: color, borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
-                      <span className="font-semibold text-sm" style={{ color: getContrastColor(color) }}>{color.toUpperCase()}</span>
-                      <input id="native-color-picker" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute w-full h-full opacity-0 cursor-pointer" />
-                  </div>
+             ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-[var(--color-text-dim)] opacity-40 py-20 lg:py-0 border-2 border-dashed border-[var(--color-border)] rounded-2xl bg-[var(--color-surface)]/50 select-none h-full">
+                   <div className="w-16 h-16 mb-4 rounded-2xl bg-[var(--color-surface-secondary)]" />
+                   <p className="text-lg font-medium">Your icons will appear here</p>
                 </div>
-            </div>
+             )}
           </div>
         </div>
-        
-        <div className="mt-6 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
-          <label className="flex items-center space-x-2 cursor-pointer w-fit" title="Show the full, detailed prompt that will be sent to the AI model">
-            <input type="checkbox" checked={isAdvancedOpen} onChange={e => setIsAdvancedOpen(e.target.checked)} className="h-4 w-4 rounded" style={{ accentColor: 'var(--color-accent)'}} />
-            <span className="text-sm" style={{ color: 'var(--color-text-dim)' }}>Show Advanced Options</span>
-          </label>
-        </div>
-        
-        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isAdvancedOpen ? 'max-h-[500px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
-            <div className="p-4 border border-dashed rounded-lg" style={{ borderColor: 'var(--color-border)' }}>
-              <label htmlFor="custom-prompt" className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Raw Generation Prompt</label>
-              <textarea id="custom-prompt" value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} readOnly={isBatchMode} className="w-full h-40 bg-transparent border rounded-lg p-3 text-xs font-mono focus:outline-none focus:ring-2 disabled:opacity-50"
-                  // FIX: Replaced invalid `ringColor` property with the correct CSS custom property `--tw-ring-color`
-                  // to align with Tailwind's ring utilities and resolve the TypeScript error.
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-dim)', '--tw-ring-color': 'var(--color-accent)' } as React.CSSProperties} />
-            </div>
-        </div>
-        
-        <div className="mt-6 flex justify-center">
-            <button type="submit" disabled={isLoading} title="Generate Icons (Ctrl+Enter)" className="w-full md:w-1/2 flex justify-center items-center gap-2 font-bold py-3 px-4 border rounded-lg text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-wait hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5"
-             style={{
-                background: `linear-gradient(45deg, var(--color-accent), var(--color-accent-dark))`,
-                color: '#FFFFFF',
-                borderColor: 'transparent',
-                opacity: isLoading ? 0.7 : 1,
-              }}>
-              {isLoading ? <><Spinner /> GENERATING...</> : (referenceIcon ? 'REGENERATE' : 'GENERATE')}
-            </button>
-        </div>
-      </form>
-      
-      {error && <div className="text-red-500 border border-red-500 bg-red-500/10 p-3 text-center rounded-lg">{error}</div>}
-      
-      {(isLoading || history.length > 0) && (
-        <div ref={resultsSectionRef} className="space-y-4 pt-6 border-t" style={{ borderColor: 'var(--color-border)'}}>
-          <h2 className="text-2xl text-center font-bold" style={{ color: 'var(--color-text)' }}>Generated Icons</h2>
-          <div className="p-2 sm:p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 select-none">
-              {isLoading && Array.from({ length: skeletonsCount }).map((_, index) => <IconCardSkeleton key={`skeleton-${index}`} />)}
-              {history.map(icon => {
-                const isNew = newlyAddedIds.has(icon.id);
-                const isDeleting = deletingIds.has(icon.id);
-                return (
-                    <div 
-                      key={icon.id}
-                      ref={(el) => { if (el) iconCardRefs.current.set(icon.id, el); else iconCardRefs.current.delete(icon.id); }}
-                      className={isDeleting ? 'animate-fade-out-scale' : isNew ? 'animate-fade-in-scale' : ''}
-                      style={isNew ? { animationDelay: `${newIdsArray.findIndex(id => id === icon.id) * 60}ms` } : {}}
-                      onTouchStart={() => handleTouchStart(icon.id)}
-                      onTouchMove={handleTouchMove}
-                      onTouchEnd={(e) => handleTouchEnd(e, icon.id)}
-                    >
-                      <IconCard 
-                        {...icon} 
-                        isSelected={selectedIds.has(icon.id)} 
-                        isProcessing={processingIds.has(icon.id)}
-                        onSelect={handleIconClick} 
-                        onDelete={handleDelete} 
-                        onPromptCopy={() => setToast({ message: 'Prompt copied!'})} 
-                        onEditRequest={() => handleSetReference(icon.id, 'edit')} 
-                        onInspireRequest={() => handleSetReference(icon.id, 'inspire')} 
-                        onRemoveBackground={handleRemoveBackground}
-                      />
-                    </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };
