@@ -201,10 +201,10 @@ const addPaddingNode = async (base64Image: string, padding: number): Promise<str
 
 // --- API Generation Logic ---
 
-const callGenerationApi = async (prompt: string, numVariants: number): Promise<string[]> => {
+const callGenerationApi = async (prompt: string, numVariants: number, model: string): Promise<string[]> => {
     const generationPromises = Array(numVariants).fill(0).map(() =>
         ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: model,
             contents: { parts: [{ text: prompt }] },
             config: { responseModalities: [Modality.IMAGE] },
         })
@@ -232,7 +232,8 @@ app.post('/generate', async (req: any, res: any) => {
             color = '#000000',
             numVariants = 1,
             isUiIcon = true,
-            padding = 0
+            padding = 0,
+            model = 'gemini-2.5-flash-image' // Default to flash if not provided
         } = req.body;
 
         if (!prompt || !style || !color || numVariants < 1) {
@@ -240,7 +241,7 @@ app.post('/generate', async (req: any, res: any) => {
         }
 
         const fullPrompt = generateFullPrompt(prompt, style, color, isUiIcon, padding);
-        const generatedImages = await callGenerationApi(fullPrompt, numVariants);
+        const generatedImages = await callGenerationApi(fullPrompt, numVariants, model);
         
         const tolerance = style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25;
 

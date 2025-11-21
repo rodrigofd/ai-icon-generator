@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import IconGenerator from './components/IconGenerator';
-import ThemeSwitcher from './components/ThemeSwitcher';
 import GitHubIcon from './components/icons/GitHubIcon';
 
 const App: React.FC = () => {
@@ -43,7 +42,6 @@ const App: React.FC = () => {
             >
               <GitHubIcon className="w-5 h-5" />
             </a>
-            <ThemeSwitcher />
           </div>
         </header>
         

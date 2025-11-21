@@ -38,6 +38,12 @@ const STYLE_OPTIONS = [
 
 const VARIANT_OPTIONS = [1, 2, 4, 8];
 
+const MODEL_STORAGE_KEY = 'settings_gemini_model';
+const AVAILABLE_MODELS = [
+  { id: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Default)' },
+  { id: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image Preview' },
+];
+
 const getStyleDescription = (style: IconStyle, color?: string): string => {
   switch (style) {
     case IconStyle.FLAT_SINGLE_COLOR:
@@ -107,7 +113,7 @@ const StyleSelector: React.FC<{ selected: IconStyle, onSelect: (style: IconStyle
 const IconGenerator = () => {
   const [prompt, setPrompt] = useState<string>('A rocket ship launching');
   const [style, setStyle] = useState<IconStyle>(IconStyle.FLAT_SINGLE_COLOR);
-  const [color, setColor] = useState<string>('#4F46E5');
+  const [color, setColor] = useState<string>('#000000');
   const [numVariants, setNumVariants] = useState<number>(2);
   const [isUiIcon, setIsUiIcon] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -132,6 +138,9 @@ const IconGenerator = () => {
   const [confirmingDelete, setConfirmingDelete] = useState<{ ids: string[]; count: number } | null>(null);
   const [deletingIds, setDeletingIds] = useState(new Set<string>());
   const [newlyAddedIds, setNewlyAddedIds] = useState(new Set<string>());
+  
+  // Model Selection State
+  const [selectedModel, setSelectedModel] = useState<string>(AVAILABLE_MODELS[0].id);
 
   const formRef = useRef<HTMLFormElement>(null);
   const resultsSectionRef = useRef<HTMLDivElement>(null);
@@ -151,6 +160,20 @@ const IconGenerator = () => {
   const [placeholderPrompt, setPlaceholderPrompt] = useState<string>('A rocket ship launching...');
 
   const isSingleColorStyle = style === IconStyle.FLAT_SINGLE_COLOR || style === IconStyle.OUTLINE;
+
+  // Load model setting from local storage
+  useEffect(() => {
+    const storedModel = localStorage.getItem(MODEL_STORAGE_KEY);
+    if (storedModel && AVAILABLE_MODELS.some(m => m.id === storedModel)) {
+      setSelectedModel(storedModel);
+    }
+  }, []);
+
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newModel = e.target.value;
+    setSelectedModel(newModel);
+    localStorage.setItem(MODEL_STORAGE_KEY, newModel);
+  };
 
   // Load randomized prompts
   useEffect(() => {
@@ -202,7 +225,7 @@ const IconGenerator = () => {
   useEffect(() => {
     if (referenceIcon) return;
     if (style === IconStyle.FLAT_SINGLE_COLOR || style === IconStyle.OUTLINE) {
-        setColor('#4F46E5');
+        setColor('#000000');
     }
   }, [style, referenceIcon]);
 
@@ -284,7 +307,7 @@ const IconGenerator = () => {
           const maskColor = getSafeMaskColor(isSingleColor ? icon.color : undefined);
           const fixPrompt = `remove any background in the image and replace it with a flat, single-color background of color ${maskColor} filling the entire canvas behind the object.`;
           
-          const editedB64 = await editImage(base64Original, 'image/png', fixPrompt);
+          const editedB64 = await editImage(base64Original, 'image/png', fixPrompt, selectedModel);
           const tolerance = icon.style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25;
           const processedDataUrl = await removeGreenScreen(editedB64, tolerance);
 
@@ -305,7 +328,7 @@ const IconGenerator = () => {
               return next;
           });
       }
-  }, [history]);
+  }, [history, selectedModel]);
 
   const handleRemoveBackgroundSelected = useCallback(async () => {
       const ids = Array.from(selectedIds);
@@ -476,8 +499,8 @@ const IconGenerator = () => {
       try {
         const fullApiPrompt = isBatchMode ? generateFullPrompt(currentPrompt) : customPrompt;
         const pngB64StringsWithGreen = referenceIcon
-          ? await generateReferencedIcon(fullApiPrompt, numVariants, referenceIcon.icon.pngSrc.split(',')[1])
-          : await generateIcons(fullApiPrompt, numVariants);
+          ? await generateReferencedIcon(fullApiPrompt, numVariants, referenceIcon.icon.pngSrc.split(',')[1], selectedModel)
+          : await generateIcons(fullApiPrompt, numVariants, selectedModel);
         
         const transparentPngDataUrls = await Promise.all(pngB64StringsWithGreen.map(b64 => removeGreenScreen(b64, style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25)));
         const finalPngDataUrls = padding > 0 ? await Promise.all(transparentPngDataUrls.map(url => addPadding(url, padding))) : transparentPngDataUrls;
@@ -504,7 +527,7 @@ const IconGenerator = () => {
       setIsLoading(false);
       setSkeletonsCount(0);
     }
-  }, [prompt, style, numVariants, isUiIcon, color, referenceIcon, customPrompt, padding, isBatchMode, generateFullPrompt]);
+  }, [prompt, style, numVariants, isUiIcon, color, referenceIcon, customPrompt, padding, isBatchMode, generateFullPrompt, selectedModel]);
 
   const handleDelete = (id: string) => requestDeletion([id]);
   
@@ -700,7 +723,7 @@ const IconGenerator = () => {
              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-1 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-[var(--color-accent)]">
                 <div className="p-3 flex justify-between items-center border-b border-[var(--color-border)]/50 mb-1">
                     <label htmlFor="prompt" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] ml-1">
-                        {isBatchMode ? "Batch Prompts" : "Prompt"}
+                        {isBatchMode ? "Batch (one prompt per line)" : "Prompt"}
                     </label>
                     <div className="flex items-center gap-2">
                         <label htmlFor="batch-mode-toggle" className="text-xs font-medium text-[var(--color-text-dim)] cursor-pointer select-none">Batch Mode</label>
@@ -712,7 +735,7 @@ const IconGenerator = () => {
                   value={prompt} 
                   onChange={(e) => setPrompt(e.target.value)} 
                   placeholder={placeholderPrompt}
-                  className="w-full h-32 bg-transparent p-3 text-lg font-medium placeholder:text-[var(--color-text-dim)]/50 focus:outline-none resize-none rounded-xl"
+                  className="w-full h-32 bg-transparent p-3 text-base font-medium placeholder:text-[var(--color-text-dim)]/50 focus:outline-none resize-none rounded-xl"
                   style={{ color: 'var(--color-text)' }}
                   onKeyDown={(e) => {
                       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -770,7 +793,7 @@ const IconGenerator = () => {
                     <div className={`relative flex-1 h-[50px] rounded-xl border border-[var(--color-border)] overflow-hidden transition-all duration-300 ${isSingleColorStyle ? 'opacity-100' : 'opacity-40 pointer-events-none grayscale'}`}>
                          <input id="native-color-picker" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                          <div className="w-full h-full flex items-center justify-center gap-2" style={{ backgroundColor: color }}>
-                             <span className="font-mono text-xs font-bold bg-black/20 backdrop-blur-sm text-white px-2 py-1 rounded uppercase shadow-sm">{color}</span>
+                             <span className="font-mono text-sm font-bold bg-black/20 backdrop-blur-sm text-white px-2 py-1 rounded uppercase shadow-sm">{color}</span>
                          </div>
                     </div>
                 </div>
@@ -778,10 +801,33 @@ const IconGenerator = () => {
                 {/* Advanced Toggle */}
                 <div className="border-t border-[var(--color-border)] pt-4">
                     <button type="button" onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} className="text-xs font-semibold text-[var(--color-text-dim)] hover:text-[var(--color-accent)] transition-colors flex items-center gap-1">
-                        {isAdvancedOpen ? 'Hide Advanced' : 'Show Advanced Prompt'}
+                        {isAdvancedOpen ? 'Hide Advanced' : 'Show Advanced'}
                     </button>
-                    <div className={`transition-all duration-300 overflow-hidden ${isAdvancedOpen ? 'max-h-40 opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
-                        <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} readOnly={isBatchMode} className="w-full h-32 text-xs font-mono p-3 bg-[var(--color-surface-secondary)] rounded-xl border border-[var(--color-border)] focus:outline-none text-[var(--color-text-dim)] resize-none" />
+                    <div className={`transition-all duration-300 overflow-hidden ${isAdvancedOpen ? 'max-h-[400px] opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+                        <div className="space-y-4 p-4 bg-[var(--color-surface-secondary)] rounded-xl border border-[var(--color-border)]">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Custom Prompt Override</label>
+                                <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} readOnly={isBatchMode} className="w-full h-24 text-xs font-mono p-3 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] focus:outline-none text-[var(--color-text-dim)] resize-none" />
+                            </div>
+                            <div>
+                                <label htmlFor="model-selector" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Gemini Model</label>
+                                <div className="relative">
+                                    <select
+                                        id="model-selector"
+                                        value={selectedModel}
+                                        onChange={handleModelChange}
+                                        className="w-full p-3 text-sm font-medium bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] text-[var(--color-text)] appearance-none focus:outline-none focus:border-[var(--color-accent)]"
+                                    >
+                                        {AVAILABLE_MODELS.map(model => (
+                                            <option key={model.id} value={model.id}>{model.label}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-[var(--color-text-dim)]">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
              </div>

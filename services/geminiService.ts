@@ -105,7 +105,7 @@ export const getStyleDescription = (style: IconStyle, color?: string): string =>
   }
 };
 
-const callGenerationApi = async (prompt: string, numVariants: number, referenceImageB64?: string) => {
+const callGenerationApi = async (prompt: string, numVariants: number, modelName: string, referenceImageB64?: string) => {
   // FIX: Restructured `parts` array creation to allow TypeScript to correctly infer the union type
   // for elements, which can be either a text or an image part. The previous implementation
   // caused a type error when adding an image part to an array inferred to only contain text parts.
@@ -123,7 +123,7 @@ const callGenerationApi = async (prompt: string, numVariants: number, referenceI
 
   const generationPromises = Array(numVariants).fill(0).map(() =>
     ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: modelName,
       contents: { parts },
       config: {
         responseModalities: [Modality.IMAGE],
@@ -149,9 +149,9 @@ const callGenerationApi = async (prompt: string, numVariants: number, referenceI
 };
 
 
-export const generateIcons = async (generationPrompt: string, numVariants: number): Promise<string[]> => {
+export const generateIcons = async (generationPrompt: string, numVariants: number, model: string): Promise<string[]> => {
   try {
-    return await callGenerationApi(generationPrompt, numVariants);
+    return await callGenerationApi(generationPrompt, numVariants, model);
   } catch (error) {
     console.error("Error generating icons:", error);
     throw new Error("Failed to generate icons from the API.");
@@ -161,10 +161,11 @@ export const generateIcons = async (generationPrompt: string, numVariants: numbe
 export const generateReferencedIcon = async (
   generationPrompt: string,
   numVariants: number,
-  referenceImageB64: string
+  referenceImageB64: string,
+  model: string
 ): Promise<string[]> => {
   try {
-    return await callGenerationApi(generationPrompt, numVariants, referenceImageB64);
+    return await callGenerationApi(generationPrompt, numVariants, model, referenceImageB64);
   } catch (error) {
     console.error("Error generating referenced icon:", error);
     throw new Error("Failed to generate referenced icon from the API.");
@@ -197,10 +198,10 @@ export const generateImage = async (prompt: string): Promise<string> => {
 };
 
 // FIX: Added editImage function to edit images based on a prompt.
-export const editImage = async (base64ImageData: string, mimeType: string, prompt: string): Promise<string> => {
+export const editImage = async (base64ImageData: string, mimeType: string, prompt: string, model: string): Promise<string> => {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: model,
             contents: {
                 parts: [
                     {

@@ -1,5 +1,4 @@
-
-import React, { useRef } from 'react';
+import React from 'react';
 import ClipboardIcon from './icons/ClipboardIcon';
 import DownloadIcon from './icons/DownloadIcon';
 import TrashIcon from './icons/TrashIcon';
@@ -104,8 +103,8 @@ const IconCard: React.FC<IconCardProps> = ({
           <div className="p-2 flex justify-end gap-1 pointer-events-auto transform -translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
              {/* Group primary edit actions - only show on hover/selected */}
              <div className="flex bg-[var(--color-surface)]/90 backdrop-blur-md rounded-lg p-1 border border-[var(--color-border)] shadow-sm" onClick={(e) => e.stopPropagation()}>
-                 <button type="button" onClick={stopProp(onEditRequest)} title="Edit" className="p-1.5 hover:text-[var(--color-accent)] transition-colors"><EditIcon className="w-4 h-4" /></button>
-                 <button type="button" onClick={stopProp(onInspireRequest)} title="Inspire" className="p-1.5 hover:text-[var(--color-accent)] transition-colors"><InspirationIcon className="w-4 h-4" /></button>
+                 <button type="button" onClick={stopProp(() => onEditRequest(id))} title="Edit" className="p-1.5 hover:text-[var(--color-accent)] transition-colors"><EditIcon className="w-4 h-4" /></button>
+                 <button type="button" onClick={stopProp(() => onInspireRequest(id))} title="Inspire" className="p-1.5 hover:text-[var(--color-accent)] transition-colors"><InspirationIcon className="w-4 h-4" /></button>
                  <button type="button" onClick={stopProp(() => onRemoveBackground(id))} title="Remove BG" className="p-1.5 hover:text-[var(--color-accent)] transition-colors"><EraserIcon className="w-4 h-4" /></button>
              </div>
           </div>
