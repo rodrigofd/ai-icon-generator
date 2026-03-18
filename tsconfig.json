@@ -17,5 +17,5 @@
     "jsx": "react-jsx",
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "index.tsx", "App.tsx", "components", "hooks", "services", "utils", "types.ts", "server.ts"]
+  "include": ["src", "server"]
 }
