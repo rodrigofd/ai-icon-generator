@@ -83,6 +83,5 @@ public/
 ### Known Issues / Notes
 
 - No test suite
-- `window.aistudio` API is specific to AI Studio hosting — needs fallback for standalone deployment
 - Dark mode CSS tokens not fully defined (only light theme set)
 - Font (General Sans) still loaded via external Fontshare CDN link

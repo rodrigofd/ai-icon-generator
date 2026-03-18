@@ -37,14 +37,3 @@ export interface ToastState
   message: string
   action?: ToastAction
 }
-
-declare global
-{
-  interface Window
-  {
-    aistudio: {
-      hasSelectedApiKey: () => Promise<boolean>
-      openSelectKey: () => Promise<void>
-    }
-  }
-}

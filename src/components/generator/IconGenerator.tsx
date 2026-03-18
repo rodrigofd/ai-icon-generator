@@ -375,7 +375,6 @@ const IconGenerator = () =>
       {
         setToast({
           message: 'Permission denied. Please ensure you have selected a valid paid API key.',
-          action: { label: 'Select Key', onClick: () => window.aistudio.openSelectKey() },
         })
       }
     }
