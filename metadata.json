@@ -1,0 +1,5 @@
+{
+  "name": "AI Icon Generator",
+  "description": "An AI-powered creative suite to generate vector icons. Use text prompts to create unique icons for your projects.",
+  "requestFramePermissions": []
+}
