@@ -1,20 +1,14 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react'
+import React, { lazy, Suspense } from 'react'
 import Spinner from './components/common/Spinner'
 import GitHubIcon from './components/icons/GitHubIcon'
+
+declare const __APP_VERSION__: string
 
 const IconGenerator = lazy(() => import('./components/generator/IconGenerator'))
 
 const App: React.FC = () =>
 {
-  const [version, setVersion] = useState<string | null>(null)
-
-  useEffect(() =>
-  {
-    fetch('./package.json')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => data?.version && setVersion(data.version))
-      .catch(error => console.error('Error fetching package.json:', error))
-  }, [])
+  const version = __APP_VERSION__
 
   return (
     <div className="min-h-screen font-sans antialiased bg-[var(--color-bg)] text-[var(--color-text)] transition-colors duration-300">

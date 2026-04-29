@@ -2,8 +2,15 @@ import fs from 'fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-const SSL_CERT_DIR = 'C:\\Certbot\\archive\\rodrigofd.pro'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const SSL_CERT_DIR = path.resolve(__dirname, 'cert')
+
+const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'))
 
 export default defineConfig({
   plugins: [
@@ -13,14 +20,15 @@ export default defineConfig({
   server: {
     port: 443,
     host: '0.0.0.0',
-    allowedHosts: ['localhost', '127.0.0.1', '192.168.0.40', 'pc.rodrigofd.pro'],
+    allowedHosts: ['localhost', '127.0.0.1', '192.168.0.40', 'icongen.rodrigofd.pro'],
     https: {
-      cert: fs.readFileSync(`${SSL_CERT_DIR}\\fullchain2.pem`),
-      key: fs.readFileSync(`${SSL_CERT_DIR}\\privkey2.pem`),
+      cert: fs.readFileSync(`${SSL_CERT_DIR}\\cert.pem`),
+      key: fs.readFileSync(`${SSL_CERT_DIR}\\key.pem`),
     },
   },
   define: {
     'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY ?? ''),
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
   build: {
     rollupOptions: {

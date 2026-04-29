@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { IconStyle, GeneratedIcon, ReferenceIcon, ReferenceMode, ToastState } from '../../types'
-import { AVAILABLE_MODELS, MODEL_STORAGE_KEY, DEFAULT_PROMPT, DEFAULT_COLOR, DEFAULT_PADDING, DEFAULT_NUM_VARIANTS } from '../../constants'
+import { AVAILABLE_MODELS, MODEL_STORAGE_KEY, DEFAULT_PROMPT, DEFAULT_COLOR, DEFAULT_PADDING, DEFAULT_NUM_VARIANTS, QUALITY_STORAGE_KEY, getModelOption, getStoredModelId, getStoredQuality } from '../../constants'
+import type { Quality } from '../../services/providers/types'
 import { buildFullPrompt, isSingleColorStyle } from '../../utils/promptBuilder'
+import { getSafeMaskColor } from '../../utils/maskColor'
 import { removeGreenScreen, addPadding } from '../../utils/imageUtils'
 import { copyPngToClipboard, downloadZip, downloadPng } from '../../utils/fileUtils'
-import { generateIcons, generateReferencedIcons, editImage, getSafeMaskColor } from '../../services/geminiService'
+import { getProvider } from '../../services/providers'
 import { useIconHistory } from '../../hooks/useIconHistory'
 import { useSelection } from '../../hooks/useSelection'
 import { useFileUpload } from '../../hooks/useFileUpload'
@@ -43,7 +45,8 @@ const IconGenerator = () =>
   const [skeletonsCount, setSkeletonsCount] = useState(0)
 
   // Model
-  const [selectedModel, setSelectedModel] = useState<string>(AVAILABLE_MODELS[0].id)
+  const [selectedModel, setSelectedModel] = useState<string>(() => getStoredModelId())
+  const [quality, setQuality] = useState<Quality>(() => getStoredQuality())
 
   // Prompts list for random suggestions
   const [allPrompts, setAllPrompts] = useState<string[]>([])
@@ -82,15 +85,6 @@ const IconGenerator = () =>
 
   useEffect(() =>
   {
-    const storedModel = localStorage.getItem(MODEL_STORAGE_KEY)
-    if (storedModel && AVAILABLE_MODELS.some(m => m.id === storedModel))
-    {
-      setSelectedModel(storedModel)
-    }
-  }, [])
-
-  useEffect(() =>
-  {
     fetch('./prompts.json')
       .then(res => res.ok ? res.json() : [])
       .then(data =>
@@ -125,9 +119,14 @@ const IconGenerator = () =>
   }, [style, referenceIcon])
 
   // Sync custom prompt with generated prompt
+  const currentModelOption = getModelOption(selectedModel)
+  const currentVendor = currentModelOption?.vendor ?? 'gemini'
+  const currentSupportsTransparency = currentModelOption?.supportsTransparency ?? false
+
   const generateFullPrompt = useCallback((promptForIcon: string) =>
   {
     return buildFullPrompt(promptForIcon, {
+      vendor: currentVendor,
       style,
       color,
       isUiIcon,
@@ -135,8 +134,9 @@ const IconGenerator = () =>
       referenceMode: referenceIcon?.mode ?? null,
       referencePrompt: referenceIcon?.icon.prompt,
       hasExternalRefs: uploadedImages.length > 0,
+      useTransparentBackground: currentSupportsTransparency,
     })
-  }, [style, color, isUiIcon, padding, referenceIcon, uploadedImages])
+  }, [currentVendor, style, color, isUiIcon, padding, referenceIcon, uploadedImages, currentSupportsTransparency])
 
   useEffect(() =>
   {
@@ -150,6 +150,12 @@ const IconGenerator = () =>
     const newModel = e.target.value
     setSelectedModel(newModel)
     localStorage.setItem(MODEL_STORAGE_KEY, newModel)
+  }
+
+  const handleQualityChange = (newQuality: Quality) =>
+  {
+    setQuality(newQuality)
+    localStorage.setItem(QUALITY_STORAGE_KEY, newQuality)
   }
 
   const handleSetReference = useCallback((iconId: string, mode: ReferenceMode) =>
@@ -179,11 +185,24 @@ const IconGenerator = () =>
       const base64Original = icon.pngSrc.split(',')[1]
       const singleColor = isSingleColorStyle(icon.style)
       const maskColor = getSafeMaskColor(singleColor ? icon.color : undefined)
-      const fixPrompt = `remove any background in the image and replace it with a flat, single-color background of color ${maskColor} filling the entire canvas behind the object.`
+      const provider = getProvider(currentVendor)
 
-      const editedB64 = await editImage(base64Original, 'image/png', fixPrompt, selectedModel)
-      const tolerance = icon.style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25
-      const processedDataUrl = await removeGreenScreen(editedB64, tolerance)
+      const fixPrompt = currentSupportsTransparency
+        ? 'Remove any background in the image. The result must have a fully transparent background with only the icon subject remaining.'
+        : `remove any background in the image and replace it with a flat, single-color background of color ${maskColor} filling the entire canvas behind the object.`
+
+      const result = await provider.editImage(base64Original, 'image/png', fixPrompt, selectedModel, quality)
+
+      let processedDataUrl: string
+      if (result.nativeTransparency)
+      {
+        processedDataUrl = `data:image/png;base64,${result.base64Data}`
+      }
+      else
+      {
+        const tolerance = icon.style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25
+        processedDataUrl = await removeGreenScreen(result.base64Data, tolerance)
+      }
 
       setHistory(prev => prev.map(item =>
         item.id === id ? { ...item, pngSrc: processedDataUrl } : item,
@@ -205,7 +224,7 @@ const IconGenerator = () =>
         return next
       })
     }
-  }, [history, selectedModel, setHistory])
+  }, [history, selectedModel, currentVendor, currentSupportsTransparency, quality, setHistory])
 
   const handleRemoveBackgroundSelected = useCallback(async () =>
   {
@@ -325,22 +344,33 @@ const IconGenerator = () =>
 
     const cleanedReferenceImages = referenceImagesList.map(img => img.split(',')[1] || img)
 
+    const provider = getProvider(currentVendor)
+
     const allPromises = promptsToProcess.map(async (currentPrompt) =>
     {
       try
       {
         const fullApiPrompt = isBatchMode ? generateFullPrompt(currentPrompt) : customPrompt
 
-        const pngB64StringsWithGreen = cleanedReferenceImages.length > 0
-          ? await generateReferencedIcons(fullApiPrompt, numVariants, cleanedReferenceImages, selectedModel)
-          : await generateIcons(fullApiPrompt, numVariants, selectedModel)
+        const results = cleanedReferenceImages.length > 0
+          ? await provider.generateReferencedIcons(fullApiPrompt, numVariants, cleanedReferenceImages, selectedModel, quality)
+          : await provider.generateIcons(fullApiPrompt, numVariants, selectedModel, quality)
 
-        const transparentPngDataUrls = await Promise.all(
-          pngB64StringsWithGreen.map(b64 => removeGreenScreen(b64, style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25)),
+        const processedDataUrls = await Promise.all(
+          results.map(async (result) =>
+          {
+            if (result.nativeTransparency)
+            {
+              return `data:image/png;base64,${result.base64Data}`
+            }
+            const tolerance = style === IconStyle.FLAT_SINGLE_COLOR ? 50 : 25
+            return removeGreenScreen(result.base64Data, tolerance)
+          }),
         )
+
         const finalPngDataUrls = padding > 0
-          ? await Promise.all(transparentPngDataUrls.map(url => addPadding(url, padding)))
-          : transparentPngDataUrls
+          ? await Promise.all(processedDataUrls.map(url => addPadding(url, padding)))
+          : processedDataUrls
 
         const newIcons: GeneratedIcon[] = finalPngDataUrls.map((dataUrl, index) => ({
           id: `icon-${Date.now()}-${currentPrompt.slice(0, 10)}-${index}`,
@@ -383,7 +413,7 @@ const IconGenerator = () =>
       setIsLoading(false)
       setSkeletonsCount(0)
     }
-  }, [prompt, style, numVariants, isUiIcon, color, referenceIcon, uploadedImages, customPrompt, padding, isBatchMode, generateFullPrompt, selectedModel, setHistory, setNewlyAddedIds, setUploadedImages])
+  }, [prompt, style, numVariants, isUiIcon, color, referenceIcon, uploadedImages, customPrompt, padding, isBatchMode, generateFullPrompt, selectedModel, currentVendor, quality, setHistory, setNewlyAddedIds, setUploadedImages])
 
   // --- Keyboard Shortcuts ---
   useKeyboardShortcuts({
@@ -507,6 +537,8 @@ const IconGenerator = () =>
                 isBatchMode={isBatchMode}
                 selectedModel={selectedModel}
                 onModelChange={handleModelChange}
+                quality={quality}
+                onQualityChange={handleQualityChange}
               />
 
               <button

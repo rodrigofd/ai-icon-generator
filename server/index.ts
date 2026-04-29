@@ -1,3 +1,4 @@
+import http from 'http'
 import https from 'https'
 import fs from 'fs'
 import express from 'express'
@@ -14,9 +15,10 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const HOST = '0.0.0.0'
-const PORT = 443
+const BEHIND_PROXY = process.env.BEHIND_PROXY === 'true'
+const PORT = parseInt(process.env.PORT || (BEHIND_PROXY ? '3444' : '443'), 10)
 
-const SSL_CERT_DIR = 'C:\\Certbot\\archive\\rodrigofd.pro'
+const SSL_CERT_DIR = path.resolve(__dirname, '../cert')
 
 async function startServer()
 {
@@ -29,6 +31,124 @@ async function startServer()
   app.get('/api/health', (_req, res) =>
   {
     res.json({ status: 'ok' })
+  })
+
+  // --- OpenAI proxy endpoints ---
+
+  app.post('/api/openai/generate', async (req, res) =>
+  {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey)
+    {
+      return res.status(500).json({ error: 'OPENAI_API_KEY is not configured on the server.' })
+    }
+
+    try
+    {
+      const {
+        prompt,
+        n = 1,
+        model = 'gpt-image-2',
+        size = '1024x1024',
+        quality = 'low',
+        background = 'auto',
+        outputFormat = 'png',
+      } = req.body
+
+      const apiResponse = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          n,
+          model,
+          size,
+          quality,
+          background,
+          output_format: outputFormat,
+        }),
+      })
+
+      if (!apiResponse.ok)
+      {
+        const errBody = await apiResponse.json().catch(() => ({}))
+        const msg = (errBody as any)?.error?.message || `OpenAI API returned ${apiResponse.status}`
+        return res.status(apiResponse.status).json({ error: msg })
+      }
+
+      const data = await apiResponse.json() as { data: { b64_json: string }[] }
+      const images = data.data.map(d => d.b64_json)
+      res.json({ images })
+    }
+    catch (error)
+    {
+      console.error('OpenAI generate error:', error)
+      res.status(500).json({ error: 'Failed to generate images via OpenAI.' })
+    }
+  })
+
+  app.post('/api/openai/edit', async (req, res) =>
+  {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey)
+    {
+      return res.status(500).json({ error: 'OPENAI_API_KEY is not configured on the server.' })
+    }
+
+    try
+    {
+      const {
+        prompt,
+        n = 1,
+        model = 'gpt-image-2',
+        images: inputImages = [],
+        size = '1024x1024',
+        quality = 'low',
+        background = 'auto',
+      } = req.body
+
+      const formData = new FormData()
+      formData.append('prompt', prompt)
+      formData.append('model', model)
+      formData.append('n', String(n))
+      formData.append('size', size)
+      formData.append('quality', quality)
+      formData.append('background', background)
+
+      for (const b64 of inputImages as string[])
+      {
+        const buffer = Buffer.from(b64, 'base64')
+        const blob = new Blob([buffer], { type: 'image/png' })
+        formData.append('image[]', blob, 'image.png')
+      }
+
+      const apiResponse = await fetch('https://api.openai.com/v1/images/edits', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: formData,
+      })
+
+      if (!apiResponse.ok)
+      {
+        const errBody = await apiResponse.json().catch(() => ({}))
+        const msg = (errBody as any)?.error?.message || `OpenAI API returned ${apiResponse.status}`
+        return res.status(apiResponse.status).json({ error: msg })
+      }
+
+      const data = await apiResponse.json() as { data: { b64_json: string }[] }
+      const resultImages = data.data.map(d => d.b64_json)
+      res.json({ images: resultImages })
+    }
+    catch (error)
+    {
+      console.error('OpenAI edit error:', error)
+      res.status(500).json({ error: 'Failed to edit images via OpenAI.' })
+    }
   })
 
   // Background removal endpoint (using sharp)
@@ -133,16 +253,25 @@ async function startServer()
     })
   }
 
-  // Read SSL certs
-  const sslOptions = {
-    cert: fs.readFileSync(path.join(SSL_CERT_DIR, 'fullchain2.pem')),
-    key: fs.readFileSync(path.join(SSL_CERT_DIR, 'privkey2.pem')),
-  }
-
-  https.createServer(sslOptions, app).listen(PORT, HOST, () =>
+  if (BEHIND_PROXY)
   {
-    console.log(`Server running on https://pc.rodrigofd.pro:${PORT}`)
-  })
+    http.createServer(app).listen(PORT, HOST, () =>
+    {
+      console.log(`Server running on http://${HOST}:${PORT} (behind proxy)`)
+    })
+  }
+  else
+  {
+    const sslOptions = {
+      cert: fs.readFileSync(path.join(SSL_CERT_DIR, 'cert.pem')),
+      key: fs.readFileSync(path.join(SSL_CERT_DIR, 'key.pem')),
+    }
+
+    https.createServer(sslOptions, app).listen(PORT, HOST, () =>
+    {
+      console.log(`Server running on https://${HOST}:${PORT}`)
+    })
+  }
 }
 
 startServer()

@@ -1,6 +1,8 @@
 import React from 'react'
 import { IconStyle } from '../../types'
-import { VARIANT_OPTIONS, AVAILABLE_MODELS } from '../../constants'
+import { VARIANT_OPTIONS, AVAILABLE_MODELS, VENDOR_LABELS, QUALITY_OPTIONS, getModelOption } from '../../constants'
+import type { Quality, Vendor } from '../../services/providers/types'
+import { VENDORS_WITH_QUALITY } from '../../services/providers/types'
 import { isSingleColorStyle } from '../../utils/promptBuilder'
 import StyleSelector from './StyleSelector'
 import Switch from '../common/Switch'
@@ -24,6 +26,8 @@ interface SettingsCardProps
   isBatchMode: boolean
   selectedModel: string
   onModelChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
+  quality: Quality
+  onQualityChange: (q: Quality) => void
 }
 
 const SettingsCard: React.FC<SettingsCardProps> = ({
@@ -44,9 +48,13 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
   isBatchMode,
   selectedModel,
   onModelChange,
+  quality,
+  onQualityChange,
 }) =>
 {
   const singleColor = isSingleColorStyle(style)
+  const currentVendor = getModelOption(selectedModel)?.vendor
+  const showQuality = currentVendor !== undefined && VENDORS_WITH_QUALITY.has(currentVendor)
 
   return (
     <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 shadow-sm space-y-6">
@@ -121,7 +129,7 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
               />
             </div>
             <div>
-              <label htmlFor="model-selector" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Gemini Model</label>
+              <label htmlFor="model-selector" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">AI Model</label>
               <div className="relative">
                 <select
                   id="model-selector"
@@ -129,15 +137,44 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
                   onChange={onModelChange}
                   className="w-full p-3 text-sm font-medium bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] text-[var(--color-text)] appearance-none focus:outline-none focus:border-[var(--color-accent)]"
                 >
-                  {AVAILABLE_MODELS.map(model => (
-                    <option key={model.id} value={model.id}>{model.label}</option>
-                  ))}
+                  {(Object.keys(VENDOR_LABELS) as Vendor[]).map(vendor =>
+                  {
+                    const vendorModels = AVAILABLE_MODELS.filter(m => m.vendor === vendor)
+                    if (vendorModels.length === 0) return null
+                    return (
+                      <optgroup key={vendor} label={VENDOR_LABELS[vendor]}>
+                        {vendorModels.map(model => (
+                          <option key={model.id} value={model.id}>{model.label}</option>
+                        ))}
+                      </optgroup>
+                    )
+                  })}
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-[var(--color-text-dim)]">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
               </div>
             </div>
+            {showQuality && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Quality</label>
+                <div className="flex bg-[var(--color-surface)] p-1 rounded-xl border border-[var(--color-border)]">
+                  {QUALITY_OPTIONS.map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => onQualityChange(opt.id)}
+                      className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${quality === opt.id
+                          ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text)] shadow-sm border border-[var(--color-border)]'
+                          : 'text-[var(--color-text-dim)] hover:text-[var(--color-text)]'
+                        }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
