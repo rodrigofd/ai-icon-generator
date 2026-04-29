@@ -19,6 +19,7 @@ export interface PromptBuilderParams
   referencePrompt?: string
   hasExternalRefs: boolean
   useTransparentBackground?: boolean
+  framed?: boolean
 }
 
 interface BuildContext
@@ -79,7 +80,9 @@ const openaiBackgroundLine = (ctx: BuildContext): string =>
 const openaiConstraintsLine = (ctx: BuildContext): string =>
 {
   const parts: string[] = [
-    'single isolated subject, centered, generous padding',
+    ctx.params.framed
+      ? 'single isolated subject, centered, with very generous empty space around it (the subject must occupy at most ~60% of the canvas)'
+      : 'single isolated subject, centered, generous padding',
     'no app-icon container, no rounded square or squircle base',
     'no border, no frame, no margin, no card, no badge',
     'no extra text, no watermark, no signature, no logos',
@@ -182,7 +185,9 @@ const geminiFinalConstraintsSentence = (ctx: BuildContext): string =>
 {
   // Gemini 3 drops early-placed negatives — keep this LAST in the prompt.
   const parts: string[] = [
-    'a single isolated subject centered in the canvas with generous negative space',
+    ctx.params.framed
+      ? 'a single isolated subject centered in the canvas with very generous negative space, occupying at most about 60% of the frame'
+      : 'a single isolated subject centered in the canvas with generous negative space',
     'no container shape, no rounded square or squircle base',
     'no border, no frame, no margin, no card, no badge',
     'no extra text, no watermark, no signature, no logos',

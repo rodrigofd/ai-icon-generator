@@ -1,12 +1,22 @@
 import React from 'react'
 import { IconStyle } from '../../types'
-import { VARIANT_OPTIONS, QUALITY_OPTIONS, getModelOption } from '../../constants'
+import { VARIANT_OPTIONS, QUALITY_OPTIONS, FRAME_PALETTE_OPTIONS, getModelOption } from '../../constants'
 import type { Quality } from '../../services/providers/types'
 import { VENDORS_WITH_QUALITY } from '../../services/providers/types'
+import type { FramePalette } from '../../utils/frameUtils'
 import { isSingleColorStyle } from '../../utils/promptBuilder'
 import StyleSelector from './StyleSelector'
 import Switch from '../common/Switch'
+import HelpTip from '../common/HelpTip'
 import ModelSelector from './ModelSelector'
+
+// Reusable label-with-tooltip helper
+const LabelWithTip: React.FC<{ children: React.ReactNode, tip: React.ReactNode, className?: string, htmlFor?: string }> = ({ children, tip, className, htmlFor }) => (
+  <div className={`flex items-center gap-1.5 ${className ?? ''}`}>
+    <label htmlFor={htmlFor} className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)]">{children}</label>
+    <HelpTip>{tip}</HelpTip>
+  </div>
+)
 
 interface SettingsCardProps
 {
@@ -29,6 +39,10 @@ interface SettingsCardProps
   onModelChange: (modelId: string) => void
   quality: Quality
   onQualityChange: (q: Quality) => void
+  framed: boolean
+  onFramedChange: (v: boolean) => void
+  framePalette: FramePalette
+  onFramePaletteChange: (p: FramePalette) => void
 }
 
 const SettingsCard: React.FC<SettingsCardProps> = ({
@@ -51,6 +65,10 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
   onModelChange,
   quality,
   onQualityChange,
+  framed,
+  onFramedChange,
+  framePalette,
+  onFramePaletteChange,
 }) =>
 {
   const singleColor = isSingleColorStyle(style)
@@ -60,14 +78,18 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
   return (
     <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 shadow-sm space-y-6">
       <div>
-        <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-3">Style</label>
+        <LabelWithTip className="mb-3" tip="The visual aesthetic for the icons. Controls the prompt sent to the model and (for Outline / Monochrome) enables a single-color picker.">
+          Style
+        </LabelWithTip>
         <StyleSelector selected={style} onSelect={onStyleChange} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         {/* Variants Control */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Count</label>
+          <LabelWithTip className="mb-2" tip="How many icon variants to generate per prompt.">
+            Count
+          </LabelWithTip>
           <div className="flex bg-[var(--color-surface-secondary)] p-1 rounded-xl border border-[var(--color-border)]">
             {VARIANT_OPTIONS.map(v => (
               <button
@@ -87,7 +109,9 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
 
         {/* Padding Input */}
         <div>
-          <label htmlFor="padding" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Padding (px)</label>
+          <LabelWithTip className="mb-2" htmlFor="padding" tip="Transparent margin (in px) added around the generated icon. Also hints the model to leave proportional breathing room. Ignored when App-tile Frame is on (the tile handles its own layout).">
+            Padding (px)
+          </LabelWithTip>
           <input
             id="padding"
             type="number"
@@ -101,11 +125,14 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
 
       <div className="flex items-center justify-between gap-4 pt-2">
         <div className="flex items-center justify-between bg-[var(--color-surface-secondary)] border border-[var(--color-border)] rounded-xl p-3 flex-1">
-          <span className="text-sm font-medium ml-1">Optimize for UI</span>
+          <div className="flex items-center gap-1.5 ml-1">
+            <span className="text-sm font-medium">Optimize for UI</span>
+            <HelpTip>Hints the model to keep details simple and legible at small sizes (down to 24px). Ideal for app/UI icons; turn off for richer, more detailed illustrations.</HelpTip>
+          </div>
           <Switch id="ui-icon-toggle" checked={isUiIcon} onChange={onUiIconChange} />
         </div>
 
-        <div className={`relative flex-1 h-[50px] rounded-xl border border-[var(--color-border)] overflow-hidden transition-all duration-300 ${singleColor ? 'opacity-100' : 'opacity-40 pointer-events-none grayscale'}`}>
+        <div className={`relative flex-1 h-[50px] rounded-xl border border-[var(--color-border)] overflow-hidden transition-all duration-300 ${singleColor ? 'opacity-100' : 'opacity-40 pointer-events-none grayscale'}`} title={singleColor ? 'Tap to pick the icon color' : 'Color picker is only used by Monochrome and Outline styles'}>
           <input id="native-color-picker" type="color" value={color} onChange={(e) => onColorChange(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
           <div className="w-full h-full flex items-center justify-center gap-2" style={{ backgroundColor: color }}>
             <span className="font-mono text-sm font-bold bg-black/20 backdrop-blur-sm text-white px-2 py-1 rounded uppercase shadow-sm">{color}</span>
@@ -113,15 +140,56 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
         </div>
       </div>
 
+      <div className="bg-[var(--color-surface-secondary)] border border-[var(--color-border)] rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between p-3">
+          <div className="flex items-center gap-1.5 ml-1">
+            <span className="text-sm font-medium">App-tile Frame</span>
+            <HelpTip>
+              Wraps each icon in a rounded square tile with a gradient background derived from the icon — Android launcher style. The tile corners stay transparent so it composites cleanly on any wallpaper.
+            </HelpTip>
+          </div>
+          <Switch id="frame-toggle" checked={framed} onChange={onFramedChange} />
+        </div>
+        {framed && (
+          <div className="border-t border-[var(--color-border)] px-3 py-2.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-dim)]">Palette</span>
+              <HelpTip>
+                <strong>Auto</strong> — picks a complement (mono icons) or analogous pastel (colored icons).<br />
+                <strong>Light / Dark</strong> — soft tints derived from the icon hue.<br />
+                <strong>Vibrant</strong> — bold, saturated tile.
+              </HelpTip>
+            </div>
+            <div className="flex bg-[var(--color-surface)] p-0.5 rounded-lg border border-[var(--color-border)] flex-1 max-w-[280px]">
+              {FRAME_PALETTE_OPTIONS.map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onFramePaletteChange(opt.id)}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${framePalette === opt.id
+                      ? 'bg-[var(--color-surface-secondary)] text-[var(--color-text)] shadow-sm border border-[var(--color-border)]'
+                      : 'text-[var(--color-text-dim)] hover:text-[var(--color-text)]'
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Advanced Toggle */}
       <div className="border-t border-[var(--color-border)] pt-4">
         <button type="button" onClick={onAdvancedToggle} className="text-xs font-semibold text-[var(--color-text-dim)] hover:text-[var(--color-accent)] transition-colors flex items-center gap-1">
           {isAdvancedOpen ? 'Hide Advanced' : 'Show Advanced'}
         </button>
-        <div className={`transition-all duration-300 overflow-hidden ${isAdvancedOpen ? 'max-h-[400px] opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+        <div className={`transition-all duration-300 overflow-hidden ${isAdvancedOpen ? 'max-h-[600px] opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
           <div className="space-y-4 p-4 bg-[var(--color-surface-secondary)] rounded-xl border border-[var(--color-border)]">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Custom Prompt Override</label>
+              <LabelWithTip className="mb-2" tip="The fully-resolved prompt sent to the model, derived from your inputs above. Edit to fine-tune for one-off generations; reverts when any setting changes.">
+                Custom Prompt Override
+              </LabelWithTip>
               <textarea
                 value={customPrompt}
                 onChange={e => onCustomPromptChange(e.target.value)}
@@ -130,12 +198,16 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">AI Model</label>
+              <LabelWithTip className="mb-2" tip="The image-generation model. Each prompt is automatically tuned per vendor. gpt-image-1 supports native transparency; other models render on a chroma-key the app then knocks out.">
+                AI Model
+              </LabelWithTip>
               <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
             </div>
             {showQuality && (
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">Quality</label>
+                <LabelWithTip className="mb-2" tip="Quality vs. speed trade-off. Low is ~10× faster than High and usually plenty for icons.">
+                  Quality
+                </LabelWithTip>
                 <div className="flex bg-[var(--color-surface)] p-1 rounded-xl border border-[var(--color-border)]">
                   {QUALITY_OPTIONS.map(opt => (
                     <button

@@ -57,6 +57,30 @@ export const getStoredModelId = (): string =>
   return AVAILABLE_MODELS[0].id
 }
 
+export const FRAMED_STORAGE_KEY = 'settings_framed'
+export const FRAME_PALETTE_STORAGE_KEY = 'settings_frame_palette'
+
+export const FRAME_PALETTE_OPTIONS: { id: 'auto' | 'light' | 'dark' | 'vibrant', label: string }[] = [
+  { id: 'auto',    label: 'Auto' },
+  { id: 'light',   label: 'Light' },
+  { id: 'dark',    label: 'Dark' },
+  { id: 'vibrant', label: 'Vibrant' },
+]
+
+export const DEFAULT_FRAME_PALETTE: 'auto' | 'light' | 'dark' | 'vibrant' = 'auto'
+
+export const getStoredFramed = (): boolean =>
+{
+  return localStorage.getItem(FRAMED_STORAGE_KEY) === 'true'
+}
+
+export const getStoredFramePalette = (): 'auto' | 'light' | 'dark' | 'vibrant' =>
+{
+  const v = localStorage.getItem(FRAME_PALETTE_STORAGE_KEY) as ('auto' | 'light' | 'dark' | 'vibrant' | null)
+  if (v && FRAME_PALETTE_OPTIONS.some(o => o.id === v)) return v
+  return DEFAULT_FRAME_PALETTE
+}
+
 export const QUALITY_STORAGE_KEY = 'settings_quality'
 
 export const QUALITY_OPTIONS: { id: Quality, label: string }[] = [

@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { IconStyle, GeneratedIcon, ReferenceIcon, ReferenceMode, ToastState } from '../../types'
-import { MODEL_STORAGE_KEY, DEFAULT_PROMPT, DEFAULT_COLOR, DEFAULT_PADDING, DEFAULT_NUM_VARIANTS, QUALITY_STORAGE_KEY, getModelOption, getStoredModelId, getStoredQuality } from '../../constants'
+import { MODEL_STORAGE_KEY, DEFAULT_PROMPT, DEFAULT_COLOR, DEFAULT_PADDING, DEFAULT_NUM_VARIANTS, QUALITY_STORAGE_KEY, FRAMED_STORAGE_KEY, FRAME_PALETTE_STORAGE_KEY, getModelOption, getStoredModelId, getStoredQuality, getStoredFramed, getStoredFramePalette } from '../../constants'
 import type { Quality } from '../../services/providers/types'
 import { buildFullPrompt, isSingleColorStyle } from '../../utils/promptBuilder'
 import { getSafeMaskColor } from '../../utils/maskColor'
 import { removeGreenScreen, addPadding } from '../../utils/imageUtils'
+import { applyFrame } from '../../utils/frameUtils'
+import type { FramePalette } from '../../utils/frameUtils'
 import { copyPngToClipboard, downloadZip, downloadPng } from '../../utils/fileUtils'
 import { getProvider } from '../../services/providers'
 import { useIconHistory } from '../../hooks/useIconHistory'
@@ -47,6 +49,8 @@ const IconGenerator = () =>
   // Model
   const [selectedModel, setSelectedModel] = useState<string>(() => getStoredModelId())
   const [quality, setQuality] = useState<Quality>(() => getStoredQuality())
+  const [framed, setFramed] = useState<boolean>(() => getStoredFramed())
+  const [framePalette, setFramePalette] = useState<FramePalette>(() => getStoredFramePalette())
 
   // Prompts list for random suggestions
   const [allPrompts, setAllPrompts] = useState<string[]>([])
@@ -135,8 +139,9 @@ const IconGenerator = () =>
       referencePrompt: referenceIcon?.icon.prompt,
       hasExternalRefs: uploadedImages.length > 0,
       useTransparentBackground: currentSupportsTransparency,
+      framed,
     })
-  }, [currentVendor, style, color, isUiIcon, padding, referenceIcon, uploadedImages, currentSupportsTransparency])
+  }, [currentVendor, style, color, isUiIcon, padding, referenceIcon, uploadedImages, currentSupportsTransparency, framed])
 
   useEffect(() =>
   {
@@ -155,6 +160,18 @@ const IconGenerator = () =>
   {
     setQuality(newQuality)
     localStorage.setItem(QUALITY_STORAGE_KEY, newQuality)
+  }
+
+  const handleFramedChange = (v: boolean) =>
+  {
+    setFramed(v)
+    localStorage.setItem(FRAMED_STORAGE_KEY, v ? 'true' : 'false')
+  }
+
+  const handleFramePaletteChange = (p: FramePalette) =>
+  {
+    setFramePalette(p)
+    localStorage.setItem(FRAME_PALETTE_STORAGE_KEY, p)
   }
 
   const handleSetReference = useCallback((iconId: string, mode: ReferenceMode) =>
@@ -367,9 +384,14 @@ const IconGenerator = () =>
           }),
         )
 
-        const finalPngDataUrls = padding > 0
-          ? await Promise.all(processedDataUrls.map(url => addPadding(url, padding)))
-          : processedDataUrls
+        // When framed, the tile already provides its own internal layout — skip canvas-edge padding.
+        const paddedDataUrls = framed || padding <= 0
+          ? processedDataUrls
+          : await Promise.all(processedDataUrls.map(url => addPadding(url, padding)))
+
+        const finalPngDataUrls = framed
+          ? await Promise.all(paddedDataUrls.map(url => applyFrame(url, { palette: framePalette })))
+          : paddedDataUrls
 
         const newIcons: GeneratedIcon[] = finalPngDataUrls.map((dataUrl, index) => ({
           id: `icon-${Date.now()}-${currentPrompt.slice(0, 10)}-${index}`,
@@ -412,7 +434,7 @@ const IconGenerator = () =>
       setIsLoading(false)
       setSkeletonsCount(0)
     }
-  }, [prompt, style, numVariants, isUiIcon, color, referenceIcon, uploadedImages, customPrompt, padding, isBatchMode, generateFullPrompt, selectedModel, currentVendor, quality, setHistory, setNewlyAddedIds, setUploadedImages])
+  }, [prompt, style, numVariants, isUiIcon, color, referenceIcon, uploadedImages, customPrompt, padding, isBatchMode, generateFullPrompt, selectedModel, currentVendor, quality, framed, framePalette, setHistory, setNewlyAddedIds, setUploadedImages])
 
   // --- Keyboard Shortcuts ---
   useKeyboardShortcuts({
@@ -538,6 +560,10 @@ const IconGenerator = () =>
                 onModelChange={handleModelChange}
                 quality={quality}
                 onQualityChange={handleQualityChange}
+                framed={framed}
+                onFramedChange={handleFramedChange}
+                framePalette={framePalette}
+                onFramePaletteChange={handleFramePaletteChange}
               />
 
               <button
