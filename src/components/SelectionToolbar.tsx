@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import DownloadIcon from './icons/DownloadIcon'
 import TrashIcon from './icons/TrashIcon'
 import EditIcon from './icons/EditIcon'
@@ -44,6 +44,65 @@ const ToolbarButton: React.FC<{
   </button>
 )
 
+interface OverflowState
+{
+  left: boolean
+  right: boolean
+}
+
+const ScrollableActions: React.FC<{
+  overflow: OverflowState
+  scrollRef: React.RefObject<HTMLDivElement | null>
+  onScrollNudge: (delta: number) => void
+  children: React.ReactNode
+}> = ({ overflow, scrollRef, onScrollNudge, children }) => (
+  <div className="relative min-w-0 flex-shrink">
+    <div
+      ref={scrollRef}
+      className="flex items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden snap-x snap-proximity"
+      style={{ scrollbarWidth: 'none' }}
+    >
+      {children}
+    </div>
+
+    {/* Edge fade + chevron at LEFT when content is hidden to the left */}
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label="Scroll left to reveal more actions"
+      onClick={() => onScrollNudge(-120)}
+      className={`absolute inset-y-0 left-0 w-6 flex items-center justify-start pl-0.5 transition-opacity duration-200 ${
+        overflow.left ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+      style={{
+        background: 'linear-gradient(to right, var(--color-surface-blur) 30%, transparent)',
+      }}
+    >
+      <svg className="w-3.5 h-3.5 text-[var(--color-text-dim)] animate-pulse-x-left" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 3L5 8l5 5" />
+      </svg>
+    </button>
+
+    {/* Edge fade + chevron at RIGHT when content is hidden to the right */}
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label="Scroll right to reveal more actions"
+      onClick={() => onScrollNudge(120)}
+      className={`absolute inset-y-0 right-0 w-6 flex items-center justify-end pr-0.5 transition-opacity duration-200 ${
+        overflow.right ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+      style={{
+        background: 'linear-gradient(to left, var(--color-surface-blur) 30%, transparent)',
+      }}
+    >
+      <svg className="w-3.5 h-3.5 text-[var(--color-text-dim)] animate-pulse-x-right" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 3l5 5-5 5" />
+      </svg>
+    </button>
+  </div>
+)
+
 const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   selectedCount,
   totalCount,
@@ -58,6 +117,41 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   onExitSelectionMode,
 }) =>
 {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [overflow, setOverflow] = useState<OverflowState>({ left: false, right: false })
+
+  const updateOverflow = useCallback(() =>
+  {
+    const el = scrollRef.current
+    if (!el) return
+    const left = el.scrollLeft > 4
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 4
+    setOverflow(prev => (prev.left === left && prev.right === right ? prev : { left, right }))
+  }, [])
+
+  const scrollByDelta = useCallback((delta: number) =>
+  {
+    scrollRef.current?.scrollBy({ left: delta, behavior: 'smooth' })
+  }, [])
+
+  useEffect(() =>
+  {
+    if (selectedCount === 0) return
+    updateOverflow()
+    const el = scrollRef.current
+    if (!el) return
+    el.addEventListener('scroll', updateOverflow, { passive: true })
+    window.addEventListener('resize', updateOverflow)
+    const ro = new ResizeObserver(updateOverflow)
+    ro.observe(el)
+    return () =>
+    {
+      el.removeEventListener('scroll', updateOverflow)
+      window.removeEventListener('resize', updateOverflow)
+      ro.disconnect()
+    }
+  }, [selectedCount, updateOverflow])
+
   if (selectedCount === 0) return null
 
   const allSelected = selectedCount === totalCount && totalCount > 0
@@ -88,7 +182,11 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
 
         <div className="h-6 w-px mx-1 bg-[var(--color-border)]" />
 
-        <div className="flex items-center gap-1 overflow-x-auto min-w-0 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+        <ScrollableActions
+          overflow={overflow}
+          scrollRef={scrollRef}
+          onScrollNudge={scrollByDelta}
+        >
           <ToolbarButton onClick={onEdit} title="Edit" label="Edit"><EditIcon className="w-5 h-5" /></ToolbarButton>
           <ToolbarButton onClick={onInspire} title="Inspire" label="Variant"><InspirationIcon className="w-5 h-5" /></ToolbarButton>
           <ToolbarButton onClick={onRemoveBackground} title="Remove Background" label="Clean"><EraserIcon className="w-5 h-5" /></ToolbarButton>
@@ -96,7 +194,7 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <ToolbarButton onClick={onCopy} title="Copy" label="Copy"><ClipboardIcon className="w-5 h-5" /></ToolbarButton>
           <ToolbarButton onClick={onDownload} title="Download" label="Download"><DownloadIcon className="w-5 h-5" /></ToolbarButton>
           <ToolbarButton onClick={onDelete} title="Delete" className="hover:!bg-red-500 hover:!text-white !text-red-500" label="Delete"><TrashIcon className="w-5 h-5" /></ToolbarButton>
-        </div>
+        </ScrollableActions>
 
         <div className="h-6 w-px mx-1 bg-[var(--color-border)]" />
 

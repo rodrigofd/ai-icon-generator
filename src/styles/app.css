@@ -114,6 +114,18 @@ body {
   animation: shimmer 1.5s infinite;
 }
 
+/* Pulse-x: gentle horizontal nudge to hint at scrollable overflow */
+@keyframes pulseXLeft {
+  0%, 100% { transform: translateX(0); opacity: 0.6; }
+  50%      { transform: translateX(-2px); opacity: 1; }
+}
+@keyframes pulseXRight {
+  0%, 100% { transform: translateX(0); opacity: 0.6; }
+  50%      { transform: translateX(2px); opacity: 1; }
+}
+.animate-pulse-x-left  { animation: pulseXLeft  1.6s ease-in-out infinite; }
+.animate-pulse-x-right { animation: pulseXRight 1.6s ease-in-out infinite; }
+
 /* --- Scrollbar --- */
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
