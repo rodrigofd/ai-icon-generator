@@ -1,11 +1,12 @@
 import React from 'react'
 import { IconStyle } from '../../types'
-import { VARIANT_OPTIONS, AVAILABLE_MODELS, VENDOR_LABELS, QUALITY_OPTIONS, getModelOption } from '../../constants'
-import type { Quality, Vendor } from '../../services/providers/types'
+import { VARIANT_OPTIONS, QUALITY_OPTIONS, getModelOption } from '../../constants'
+import type { Quality } from '../../services/providers/types'
 import { VENDORS_WITH_QUALITY } from '../../services/providers/types'
 import { isSingleColorStyle } from '../../utils/promptBuilder'
 import StyleSelector from './StyleSelector'
 import Switch from '../common/Switch'
+import ModelSelector from './ModelSelector'
 
 interface SettingsCardProps
 {
@@ -25,7 +26,7 @@ interface SettingsCardProps
   onCustomPromptChange: (v: string) => void
   isBatchMode: boolean
   selectedModel: string
-  onModelChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
+  onModelChange: (modelId: string) => void
   quality: Quality
   onQualityChange: (q: Quality) => void
 }
@@ -129,31 +130,8 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
               />
             </div>
             <div>
-              <label htmlFor="model-selector" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">AI Model</label>
-              <div className="relative">
-                <select
-                  id="model-selector"
-                  value={selectedModel}
-                  onChange={onModelChange}
-                  className="w-full p-3 text-sm font-medium bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] text-[var(--color-text)] appearance-none focus:outline-none focus:border-[var(--color-accent)]"
-                >
-                  {(Object.keys(VENDOR_LABELS) as Vendor[]).map(vendor =>
-                  {
-                    const vendorModels = AVAILABLE_MODELS.filter(m => m.vendor === vendor)
-                    if (vendorModels.length === 0) return null
-                    return (
-                      <optgroup key={vendor} label={VENDOR_LABELS[vendor]}>
-                        {vendorModels.map(model => (
-                          <option key={model.id} value={model.id}>{model.label}</option>
-                        ))}
-                      </optgroup>
-                    )
-                  })}
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-[var(--color-text-dim)]">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-              </div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-text-dim)] mb-2">AI Model</label>
+              <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
             </div>
             {showQuality && (
               <div>

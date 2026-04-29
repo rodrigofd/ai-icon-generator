@@ -37,8 +37,10 @@ export interface ImageProvider
 export interface ModelOption
 {
   id: string
-  label: string
   vendor: Vendor
+  name: string
+  costTier: 1 | 2 | 3 | 4
+  tagline?: string
   supportsTransparency: boolean
 }
 

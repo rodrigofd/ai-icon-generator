@@ -17,17 +17,22 @@ const LEGACY_MODEL_STORAGE_KEY = 'settings_gemini_model'
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   // OpenAI
-  { id: 'gpt-image-2', label: 'GPT Image 2 ($$) Latest', vendor: 'openai', supportsTransparency: false },
-  { id: 'gpt-image-1', label: 'GPT Image 1 ($$$) + Transparency', vendor: 'openai', supportsTransparency: true },
+  { id: 'gpt-image-2', vendor: 'openai', name: 'GPT Image 2', costTier: 2, tagline: 'Latest', supportsTransparency: false },
+  { id: 'gpt-image-1', vendor: 'openai', name: 'GPT Image 1', costTier: 3, supportsTransparency: true },
   // Gemini
-  { id: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash ($$) HQ', vendor: 'gemini', supportsTransparency: false },
-  { id: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro ($$$$) HQ', vendor: 'gemini', supportsTransparency: false },
-  { id: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash ($)', vendor: 'gemini', supportsTransparency: false },
+  { id: 'gemini-3.1-flash-image-preview', vendor: 'gemini', name: 'Gemini 3.1 Flash', costTier: 2, tagline: 'HQ', supportsTransparency: false },
+  { id: 'gemini-3-pro-image-preview', vendor: 'gemini', name: 'Gemini 3 Pro', costTier: 4, tagline: 'HQ', supportsTransparency: false },
+  { id: 'gemini-2.5-flash-image', vendor: 'gemini', name: 'Gemini 2.5 Flash', costTier: 1, supportsTransparency: false },
 ]
 
 export const VENDOR_LABELS: Record<Vendor, string> = {
   openai: 'OpenAI',
   gemini: 'Google Gemini',
+}
+
+export const VENDOR_LOGOS: Record<Vendor, string> = {
+  openai: './assets/vendors/openai.png',
+  gemini: './assets/vendors/gemini.png',
 }
 
 export const getModelOption = (modelId: string): ModelOption | undefined =>

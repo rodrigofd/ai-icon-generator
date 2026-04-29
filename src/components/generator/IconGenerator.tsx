@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { IconStyle, GeneratedIcon, ReferenceIcon, ReferenceMode, ToastState } from '../../types'
-import { AVAILABLE_MODELS, MODEL_STORAGE_KEY, DEFAULT_PROMPT, DEFAULT_COLOR, DEFAULT_PADDING, DEFAULT_NUM_VARIANTS, QUALITY_STORAGE_KEY, getModelOption, getStoredModelId, getStoredQuality } from '../../constants'
+import { MODEL_STORAGE_KEY, DEFAULT_PROMPT, DEFAULT_COLOR, DEFAULT_PADDING, DEFAULT_NUM_VARIANTS, QUALITY_STORAGE_KEY, getModelOption, getStoredModelId, getStoredQuality } from '../../constants'
 import type { Quality } from '../../services/providers/types'
 import { buildFullPrompt, isSingleColorStyle } from '../../utils/promptBuilder'
 import { getSafeMaskColor } from '../../utils/maskColor'
@@ -145,9 +145,8 @@ const IconGenerator = () =>
 
   // --- Handlers ---
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+  const handleModelChange = (newModel: string) =>
   {
-    const newModel = e.target.value
     setSelectedModel(newModel)
     localStorage.setItem(MODEL_STORAGE_KEY, newModel)
   }
